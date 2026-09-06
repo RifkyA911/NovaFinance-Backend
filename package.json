@@ -1,18 +1,34 @@
 {
-  "name": "vestjournal-be",
+  "name": "novajournal-be",
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "test:db": "bun run src/test-db.ts",
+    "test:redis": "bun run src/test-redis.ts",
+    "test:minio": "bun run src/test-minio.ts",
+    "test:api": "bun run src/test-api.ts",
+    "test:all": "bun run src/test-db.ts && bun run src/test-redis.ts && bun run src/test-minio.ts && bun run src/test-api.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "seed": "bun run src/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
     "@elysiajs/cors": "^1.4.2",
-    "elysia": "latest"
+    "better-auth": "^1.7.2",
+    "drizzle-orm": "^0.33.0",
+    "elysia": "latest",
+    "pg": "^8.12.0",
+    "postgres": "^3.4.4",
+    "redis": "^4.7.0"
   },
   "devDependencies": {
-    "@prisma/client": "^7.8.0",
     "bun-types": "latest",
-    "prisma": "^7.8.0"
+    "drizzle-kit": "^0.24.2"
   },
   "module": "src/index.js"
 }

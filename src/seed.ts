@@ -1,6 +1,7 @@
 import { db } from './auth/config';
 import * as schema from './db/schema';
 import { eq } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 
 async function seed() {
   console.log('🌱 Starting database seed...');
@@ -18,11 +19,12 @@ async function seed() {
     await db.delete(schema.users);
     console.log('✅ Database cleaned');
 
-    // Create multiple users
+    // Create multiple users with hashed passwords (BetterAuth compatible)
     const users = [
-      { email: 'admin@example.com', passwordHash: 'admin123', name: 'Admin User' },
-      { email: 'user@example.com', passwordHash: 'password123', name: 'Regular User' },
-      { email: 'staff@example.com', passwordHash: 'staff123', name: 'Staff User' },
+      { email: 'test@example.com', passwordHash: await bcrypt.hash('password123', 10), name: 'Test User' },
+      { email: 'admin@example.com', passwordHash: await bcrypt.hash('admin123', 10), name: 'Admin User' },
+      { email: 'user@example.com', passwordHash: await bcrypt.hash('password123', 10), name: 'Regular User' },
+      { email: 'staff@example.com', passwordHash: await bcrypt.hash('staff123', 10), name: 'Staff User' },
     ];
 
     const userIds: Record<string, string> = {};
@@ -31,6 +33,15 @@ async function seed() {
       const [user] = await db.insert(schema.users).values(userData).returning();
       userIds[userData.email] = user.id;
       console.log('✅ User created:', user.email);
+
+      // Create account record for BetterAuth
+      await db.insert(schema.account).values({
+        userId: user.id,
+        accountId: user.id,
+        providerId: 'credential',
+        password: userData.passwordHash,
+      });
+      console.log('✅ Account created for:', user.email);
     }
 
     const adminId = userIds['admin@example.com'];

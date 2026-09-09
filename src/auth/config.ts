@@ -4,7 +4,7 @@ import * as schema from '../db/schema';
 import { eq } from 'drizzle-orm';
 
 const pool = new Pool({
-  host: process.env.DB_HOST || '172.27.66.97',
+  host: process.env.DB_HOST || 'db',
   port: parseInt(process.env.DB_PORT || '5432'),
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',

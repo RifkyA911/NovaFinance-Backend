@@ -1,5 +1,23 @@
 import { pgTable, uuid, varchar, decimal, timestamp, integer, boolean, jsonb, text, index } from 'drizzle-orm/pg-core';
 
+// Account table (for Better Auth)
+export const account = pgTable('account', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  accountId: varchar('account_id', { length: 255 }).notNull(),
+  providerId: varchar('provider_id', { length: 255 }).notNull(),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  expiresAt: timestamp('expires_at'),
+  password: varchar('password', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('account_user_id_idx').on(table.userId),
+  accountIdIdx: index('account_account_id_idx').on(table.accountId),
+}));
+
 // Sessions table (for Better Auth)
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().defaultRandom(),

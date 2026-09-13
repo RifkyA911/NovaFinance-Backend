@@ -1,37 +1,19 @@
-import { getSession } from '../auth/config';
-import { eq, or, and } from 'drizzle-orm';
+import { auth } from '../auth';
+import { eq, and } from 'drizzle-orm';
 import { db } from '../auth/config';
 import * as schema from '../db/schema';
-import { hasPermission, requirePermission } from '../lib/permissions';
-import type { Permission } from '../lib/permissions';
+import * as authSchema from '../db/auth-schema';
 
 export async function requireAuth(headers: any) {
-  const authHeader = headers['authorization'];
-  const cookieHeader = headers['cookie'];
-  
-  let token = '';
-  
-  if (authHeader) {
-    token = authHeader.replace('Bearer ', '');
-  } else if (cookieHeader) {
-    const match = cookieHeader.match(/session=([^;]+)/);
-    if (match) {
-      token = match[1];
-    }
-  }
-  
-  if (!token) {
-    console.log('Auth failed: No token found. Headers:', { authHeader: !!authHeader, cookieHeader: !!cookieHeader });
-    return { error: 'No authorization header or session cookie provided' };
-  }
-  
-  const session = await getSession(token);
-  
+  const session = await auth.api.getSession({
+    headers: headers,
+  });
+
   if (!session) {
-    console.log('Auth failed: Invalid session token');
-    return { error: 'Invalid or expired session' };
+    console.log('Auth failed: Invalid session');
+    return { error: 'Invalid or expired session', status: 401 };
   }
-  
+
   return { user: session.user };
 }
 
@@ -62,19 +44,11 @@ export async function getWorkspaceRole(userId: string, workspaceId: string) {
   return { error: 'Access denied' };
 }
 
-export async function requireWorkspaceAccess(userId: string, workspaceId: string, permission?: Permission) {
+export async function requireWorkspaceAccess(userId: string, workspaceId: string, permission?: any) {
   const result = await getWorkspaceRole(userId, workspaceId);
   
   if (result.error) {
-    return { error: result.error };
-  }
-  
-  if (permission) {
-    try {
-      requirePermission(result.role, permission);
-    } catch (error: any) {
-      return { error: error.message };
-    }
+    return { error: result.error, status: 403 };
   }
   
   return { role: result.role, workspace: result.workspace };

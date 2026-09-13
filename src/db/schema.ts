@@ -1,46 +1,12 @@
 import { pgTable, uuid, varchar, decimal, timestamp, integer, boolean, jsonb, text, index } from 'drizzle-orm/pg-core';
 
-// Account table (for Better Auth)
-export const account = pgTable('account', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  accountId: varchar('account_id', { length: 255 }).notNull(),
-  providerId: varchar('provider_id', { length: 255 }).notNull(),
-  accessToken: text('access_token'),
-  refreshToken: text('refresh_token'),
-  idToken: text('id_token'),
-  expiresAt: timestamp('expires_at'),
-  password: varchar('password', { length: 255 }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  userIdIdx: index('account_user_id_idx').on(table.userId),
-  accountIdIdx: index('account_account_id_idx').on(table.accountId),
-}));
-
-// Sessions table (for Better Auth)
-export const sessions = pgTable('sessions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  token: varchar('token', { length: 255 }).notNull().unique(),
-  expiresAt: timestamp('expires_at').notNull(),
-  ipAddress: varchar('ip_address', { length: 64 }),
-  userAgent: text('user_agent'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  userIdIdx: index('sessions_user_id_idx').on(table.userId),
-  tokenIdx: index('sessions_token_idx').on(table.token),
-}));
-
 // Users table (for Better Auth)
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
+export const users = pgTable('user', {
+  id: text('id').primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
   emailVerified: timestamp('email_verified'),
   image: varchar('image', { length: 500 }),
-  passwordHash: varchar('password_hash', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
@@ -50,14 +16,14 @@ export const users = pgTable('users', {
 // Workspaces table
 export const workspaces = pgTable('workspaces', {
   id: uuid('id').primaryKey().defaultRandom(),
-  ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  ownerId: text('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   type: varchar('type', { length: 20 }).notNull(), // 'personal', 'umkm', 'pt'
   currency: varchar('currency', { length: 3 }).default('IDR'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-  deletedBy: uuid('deleted_by').references(() => users.id),
+  deletedBy: text('deleted_by').references(() => users.id),
   deletedReason: text('deleted_reason'),
 }, (table) => ({
   ownerIdIdx: index('workspaces_owner_id_idx').on(table.ownerId),
@@ -67,9 +33,9 @@ export const workspaces = pgTable('workspaces', {
 export const collaborators = pgTable('collaborators', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   role: varchar('role', { length: 20 }).notNull(), // 'owner', 'admin', 'staff', 'viewer'
-  invitedBy: uuid('invited_by').references(() => users.id),
+  invitedBy: text('invited_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
@@ -89,7 +55,7 @@ export const categories = pgTable('categories', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-  deletedBy: uuid('deleted_by').references(() => users.id),
+  deletedBy: text('deleted_by').references(() => users.id),
   deletedReason: text('deleted_reason'),
 }, (table) => ({
   workspaceIdIdx: index('categories_workspace_id_idx').on(table.workspaceId),
@@ -108,7 +74,7 @@ export const accounts = pgTable('accounts', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-  deletedBy: uuid('deleted_by').references(() => users.id),
+  deletedBy: text('deleted_by').references(() => users.id),
   deletedReason: text('deleted_reason'),
 }, (table) => ({
   workspaceIdIdx: index('accounts_workspace_id_idx').on(table.workspaceId),
@@ -132,7 +98,7 @@ export const transactions = pgTable('transactions', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-  deletedBy: uuid('deleted_by').references(() => users.id),
+  deletedBy: text('deleted_by').references(() => users.id),
   deletedReason: text('deleted_reason'),
 }, (table) => ({
   workspaceIdIdx: index('transactions_workspace_id_idx').on(table.workspaceId),
@@ -160,7 +126,7 @@ export const invoices = pgTable('invoices', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-  deletedBy: uuid('deleted_by').references(() => users.id),
+  deletedBy: text('deleted_by').references(() => users.id),
   deletedReason: text('deleted_reason'),
 }, (table) => ({
   workspaceIdIdx: index('invoices_workspace_id_idx').on(table.workspaceId),

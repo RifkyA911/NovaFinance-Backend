@@ -4,7 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // MinIO S3 Client
 const s3Client = new S3Client({
-  endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
+  endpoint: process.env.MINIO_ENDPOINT || 'http://minio:9000',
   region: 'us-east-1',
   credentials: {
     accessKeyId: process.env.MINIO_ACCESS_KEY || 'minio',
@@ -31,9 +31,13 @@ async function ensureBucket() {
 ensureBucket();
 
 export const documentRoutes = new Elysia({ prefix: '/documents' })
-  .post('/upload', async ({ body }) => {
+  .post('/upload', async ({ request }) => {
     try {
-      const { file, filename, transactionId, documentType, workspaceId } = body as any;
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+      const filename = formData.get('filename') as string;
+      const transactionId = formData.get('transactionId') as string;
+      const workspaceId = formData.get('workspaceId') as string;
 
       if (!file || !filename || !workspaceId) {
         return { error: 'Missing required fields' };
@@ -41,11 +45,16 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
 
       const key = `${workspaceId}/${transactionId || 'unlinked'}/${Date.now()}-${filename}`;
 
+      // Convert File to ArrayBuffer then Buffer
+      const arrayBuffer = await file.arrayBuffer();
+      const bodyBuffer = Buffer.from(arrayBuffer);
+
       const command = new PutObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
-        Body: file,
+        Body: bodyBuffer,
         ContentType: file.type || 'application/octet-stream',
+        ContentLength: bodyBuffer.length,
       });
 
       await s3Client.send(command);
@@ -63,7 +72,6 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
         key,
         url,
         filename,
-        documentType,
         transactionId,
       };
     } catch (error) {
@@ -71,13 +79,10 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
       return { error: 'Upload failed', details: error };
     }
   }, {
-    body: t.Object({
-      file: t.Any(),
-      filename: t.String(),
-      transactionId: t.Optional(t.String()),
-      documentType: t.Optional(t.String()),
-      workspaceId: t.String(),
-    }),
+    detail: {
+      tags: ['Documents'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
   .get('/list/:workspaceId', async ({ params }) => {

@@ -3,16 +3,19 @@ import { db } from '../auth/config';
 import * as schema from '../db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
+import { auth } from '../auth';
 
 export const accountRoutes = new Elysia({ prefix: '/api/accounts' })
-  .post('/', async ({ body, headers }) => {
+  .post('/', async ({ body, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, body.workspaceId, 'accounts.create');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -41,20 +44,27 @@ export const accountRoutes = new Elysia({ prefix: '/api/accounts' })
       accountNumber: t.Optional(t.String()),
       bankName: t.Optional(t.String()),
     }),
+    detail: {
+      tags: ['Accounts'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/', async ({ headers, query }) => {
+  .get('/', async ({ headers, query, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     if (!query.workspaceId) {
+      set.status = 400;
       return { error: 'workspaceId is required' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'accounts.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -73,42 +83,52 @@ export const accountRoutes = new Elysia({ prefix: '/api/accounts' })
     query: t.Object({
       workspaceId: t.String(),
     }),
+    detail: {
+      tags: ['Accounts'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/:id', async ({ params, headers }) => {
+  .get('/:id', async ({ params, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const [account] = await db.select().from(schema.accounts).where(eq(schema.accounts.id, params.id));
     
     if (!account) {
+      set.status = 404;
       return { error: 'Account not found' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, account.workspaceId, 'accounts.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
     return { success: true, data: { account } };
   })
 
-  .patch('/:id', async ({ params, body, headers }) => {
+  .patch('/:id', async ({ params, body, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const [account] = await db.select().from(schema.accounts).where(eq(schema.accounts.id, params.id));
     
     if (!account) {
+      set.status = 404;
       return { error: 'Account not found' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, account.workspaceId, 'accounts.update');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     

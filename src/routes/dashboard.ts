@@ -3,20 +3,24 @@ import { db } from '../auth/config';
 import * as schema from '../db/schema';
 import { eq, and, isNull, sql, gte, lte, desc } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
+import { auth } from '../auth';
 
 export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
-  .get('/summary', async ({ headers, query }) => {
+  .get('/summary', async ({ headers, query, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     if (!query.workspaceId) {
+      set.status = 400;
       return { error: 'workspaceId query parameter is required' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -76,20 +80,27 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     query: t.Object({
       workspaceId: t.String(),
     }),
+    detail: {
+      tags: ['Dashboard'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/trends', async ({ headers, query }) => {
+  .get('/trends', async ({ headers, query, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     if (!query.workspaceId) {
+      set.status = 400;
       return { error: 'workspaceId query parameter is required' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -134,20 +145,27 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       workspaceId: t.String(),
       months: t.Optional(t.String()),
     }),
+    detail: {
+      tags: ['Dashboard'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/categories', async ({ headers, query }) => {
+  .get('/categories', async ({ headers, query, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     if (!query.workspaceId) {
+      set.status = 400;
       return { error: 'workspaceId query parameter is required' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -207,20 +225,27 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       workspaceId: t.String(),
       type: t.Optional(t.String()),
     }),
+    detail: {
+      tags: ['Dashboard'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/accounts', async ({ headers, query }) => {
+  .get('/accounts', async ({ headers, query, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     if (!query.workspaceId) {
+      set.status = 400;
       return { error: 'workspaceId query parameter is required' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'accounts.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -253,4 +278,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     query: t.Object({
       workspaceId: t.String(),
     }),
+    detail: {
+      tags: ['Dashboard'],
+      security: [{ BearerAuth: [] }],
+    },
   });

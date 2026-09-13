@@ -3,11 +3,13 @@ import { db } from '../auth/config';
 import * as schema from '../db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
+import { auth } from '../auth';
 
 export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
-  .post('/', async ({ body, headers }) => {
+  .post('/', async ({ body, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
@@ -37,12 +39,17 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
       type: t.Union([t.Literal('personal'), t.Literal('umkm'), t.Literal('pt')]),
       currency: t.Optional(t.String()),
     }),
+    detail: {
+      tags: ['Workspaces'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/', async ({ headers }) => {
+  .get('/', async ({ headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
       console.log('Workspace GET auth failed:', auth.error);
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
@@ -88,30 +95,44 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
       console.error('Workspace GET error:', error);
       return { error: error.message };
     }
+  }, {
+    detail: {
+      tags: ['Workspaces'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/:id', async ({ params, headers }) => {
+  .get('/:id', async ({ params, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, params.id, 'workspaces.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
     return { success: true, data: { workspace: access.workspace, role: access.role } };
+  }, {
+    detail: {
+      tags: ['Workspaces'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .patch('/:id', async ({ params, body, headers }) => {
+  .patch('/:id', async ({ params, body, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, params.id, 'workspaces.update');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -136,16 +157,22 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
       type: t.Optional(t.Union([t.Literal('personal'), t.Literal('umkm'), t.Literal('pt')])),
       currency: t.Optional(t.String()),
     }),
+    detail: {
+      tags: ['Workspaces'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .delete('/:id', async ({ params, headers }) => {
+  .delete('/:id', async ({ params, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, params.id, 'workspaces.delete');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -163,4 +190,9 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
     } catch (error: any) {
       return { error: error.message };
     }
+  }, {
+    detail: {
+      tags: ['Workspaces'],
+      security: [{ BearerAuth: [] }],
+    },
   });

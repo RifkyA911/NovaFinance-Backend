@@ -3,16 +3,19 @@ import { db } from '../auth/config';
 import * as schema from '../db/schema';
 import { eq, and, isNull, desc } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
+import { auth } from '../auth';
 
 export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
-  .post('/', async ({ body, headers }) => {
+  .post('/', async ({ body, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, body.workspaceId, 'transactions.create');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -47,20 +50,27 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
       metadata: t.Optional(t.Any()),
       isStaging: t.Optional(t.Boolean()),
     }),
+    detail: {
+      tags: ['Transactions'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/', async ({ headers, query }) => {
+  .get('/', async ({ headers, query, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     if (!query.workspaceId) {
+      set.status = 400;
       return { error: 'workspaceId query parameter is required' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
@@ -113,42 +123,52 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
       workspaceId: t.String(),
       limit: t.Optional(t.String()),
     })),
+    detail: {
+      tags: ['Transactions'],
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/:id', async ({ params, headers }) => {
+  .get('/:id', async ({ params, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const [transaction] = await db.select().from(schema.transactions).where(eq(schema.transactions.id, params.id));
     
     if (!transaction) {
+      set.status = 404;
       return { error: 'Transaction not found' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, transaction.workspaceId, 'transactions.read');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     
     return { success: true, data: { transaction } };
   })
 
-  .patch('/:id', async ({ params, body, headers }) => {
+  .patch('/:id', async ({ params, body, headers, set }) => {
     const auth = await requireAuth(headers);
     if (auth.error || !auth.user) {
+      set.status = auth.status || 401;
       return { error: auth.error || 'Authentication failed' };
     }
     
     const [transaction] = await db.select().from(schema.transactions).where(eq(schema.transactions.id, params.id));
     
     if (!transaction) {
+      set.status = 404;
       return { error: 'Transaction not found' };
     }
     
     const access = await requireWorkspaceAccess(auth.user.id, transaction.workspaceId, 'transactions.update');
     if (access.error) {
+      set.status = access.status || 403;
       return { error: access.error };
     }
     

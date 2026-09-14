@@ -8,7 +8,8 @@ import { accountRoutes } from "./routes/accounts";
 import { transactionRoutes } from "./routes/transactions";
 import { invoiceRoutes } from "./routes/invoices";
 import { dashboardRoutes } from "./routes/dashboard";
-import { documentRoutes } from "./routes/documents";
+import { aiRoutes } from "./routes/ai";
+import { documentRoutes, apiDocumentRoutes } from "./routes/documents";
 
 const app = new Elysia()
   .use(swagger({
@@ -16,7 +17,7 @@ const app = new Elysia()
       info: {
         title: 'NovaJournal API',
         version: '1.0.0',
-        description: 'Personal finance tracking API with document management',
+        description: 'Personal finance tracking API with AI-powered document analysis',
       },
       tags: [
         { name: 'Auth', description: 'Authentication endpoints' },
@@ -26,7 +27,7 @@ const app = new Elysia()
         { name: 'Transactions', description: 'Transaction management' },
         { name: 'Invoices', description: 'Invoice management' },
         { name: 'Dashboard', description: 'Dashboard data' },
-        { name: 'Documents', description: 'Document upload and management' },
+        { name: 'AI', description: 'AI-powered features' },
       ],
       components: {
         securitySchemes: {
@@ -39,8 +40,6 @@ const app = new Elysia()
         },
       },
     },
-    swaggerPath: '/swagger',
-    exclude: ['/api/auth/*'],
   }))
   .use(cors({
     origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
@@ -55,7 +54,9 @@ const app = new Elysia()
   .use(transactionRoutes)
   .use(invoiceRoutes)
   .use(dashboardRoutes)
+  .use(aiRoutes)
   .use(documentRoutes)
+  .use(apiDocumentRoutes)
   .get("/", () => ({
     message: "NovaJournal API",
     version: "1.0.0",
@@ -67,6 +68,9 @@ const app = new Elysia()
     status: "healthy",
     timestamp: new Date().toISOString(),
   }))
+  .onError(({ code, error }) => {
+    console.error('Elysia Error:', code, error);
+  })
 
   .listen(8080);
 

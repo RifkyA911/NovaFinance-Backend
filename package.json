@@ -25,6 +25,7 @@
     "@better-auth/memory-adapter": "^1.7.4",
     "@elysiajs/cors": "^1.4.2",
     "@elysiajs/swagger": "^1",
+    "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.7.4",
     "drizzle-orm": "^0.33.0",

@@ -7,21 +7,21 @@ import { auth } from '../auth';
 
 export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
   .get('/summary', async ({ headers, query, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     if (!query.workspaceId) {
       set.status = 400;
-      return { error: 'workspaceId query parameter is required' };
+      return { success: false, error: 'workspaceId query parameter is required', code: 'VALIDATION_ERROR' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
+    const access = await requireWorkspaceAccess(authResult.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
@@ -74,7 +74,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
         }
       };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
   }, {
     query: t.Object({
@@ -82,26 +83,28 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     }),
     detail: {
       tags: ['Dashboard'],
+      summary: 'Get dashboard summary',
+      description: 'Get financial summary for workspace including total balance, monthly income/expense, savings rate, account count, and transaction count. Requires workspace access (owner, admin, staff, member).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "totalBalance": 27000000,\n    "monthlyIncome": 20000000,\n    "monthlyExpense": 7500000,\n    "savingsRate": 62.5,\n    "accountCount": 4,\n    "transactionCount": 45\n  }\n}\n```',
       security: [{ BearerAuth: [] }],
     },
   })
 
   .get('/trends', async ({ headers, query, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     if (!query.workspaceId) {
       set.status = 400;
-      return { error: 'workspaceId query parameter is required' };
+      return { success: false, error: 'workspaceId query parameter is required', code: 'VALIDATION_ERROR' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
+    const access = await requireWorkspaceAccess(authResult.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
@@ -138,7 +141,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       
       return { success: true, data: { trends } };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
   }, {
     query: t.Object({
@@ -147,26 +151,28 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     }),
     detail: {
       tags: ['Dashboard'],
+      summary: 'Get financial trends',
+      description: 'Get income/expense trends over specified number of months. Requires workspace access (owner, admin, staff, member).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n- `months` (optional): Number of months to include (default: 6)\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "trends": [\n      {\n        "month": "Apr",\n        "income": 18000000,\n        "expense": 8000000\n      },\n      {\n        "month": "May",\n        "income": 20000000,\n        "expense": 9000000\n      },\n      {\n        "month": "Jun",\n        "income": 22000000,\n        "expense": 10000000\n      },\n      {\n        "month": "Jul",\n        "income": 19000000,\n        "expense": 8500000\n      },\n      {\n        "month": "Aug",\n        "income": 21000000,\n        "expense": 9500000\n      },\n      {\n        "month": "Sep",\n        "income": 20000000,\n        "expense": 7500000\n      }\n    ]\n  }\n}\n```',
       security: [{ BearerAuth: [] }],
     },
   })
 
   .get('/categories', async ({ headers, query, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     if (!query.workspaceId) {
       set.status = 400;
-      return { error: 'workspaceId query parameter is required' };
+      return { success: false, error: 'workspaceId query parameter is required', code: 'VALIDATION_ERROR' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
+    const access = await requireWorkspaceAccess(authResult.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
@@ -218,7 +224,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       
       return { success: true, data: { categories: result } };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
   }, {
     query: t.Object({
@@ -227,26 +234,28 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     }),
     detail: {
       tags: ['Dashboard'],
+      summary: 'Get category breakdown',
+      description: 'Get category spending/income breakdown for current month. Requires workspace access (owner, admin, staff, member).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n- `type` (optional): Transaction type - `income` or `expense` (default: `expense`)\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "categories": [\n      {\n        "name": "Food & Dining",\n        "value": 2500000,\n        "percentage": "33.3",\n        "color": "#EF4444"\n      },\n      {\n        "name": "Transportation",\n        "value": 2000000,\n        "percentage": "26.7",\n        "color": "#F59E0B"\n      },\n      {\n        "name": "Utilities",\n        "value": 1500000,\n        "percentage": "20.0",\n        "color": "#3B82F6"\n      },\n      {\n        "name": "Shopping",\n        "value": 1000000,\n        "percentage": "13.3",\n        "color": "#8B5CF6"\n      },\n      {\n        "name": "Entertainment",\n        "value": 500000,\n        "percentage": "6.7",\n        "color": "#EC4899"\n      }\n    ]\n  }\n}\n```',
       security: [{ BearerAuth: [] }],
     },
   })
 
   .get('/accounts', async ({ headers, query, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     if (!query.workspaceId) {
       set.status = 400;
-      return { error: 'workspaceId query parameter is required' };
+      return { success: false, error: 'workspaceId query parameter is required', code: 'VALIDATION_ERROR' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'accounts.read');
+    const access = await requireWorkspaceAccess(authResult.user.id, query.workspaceId, 'accounts.read');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
@@ -272,7 +281,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       
       return { success: true, data: { accounts: result } };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
   }, {
     query: t.Object({
@@ -280,6 +290,8 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
     }),
     detail: {
       tags: ['Dashboard'],
+      summary: 'Get account balances',
+      description: 'Get account balance breakdown by account type with color coding. Requires workspace access (owner, admin, staff, member).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n\n**Account Type Colors:**\n- `bank`: Blue (#3B82F6)\n- `cash`: Green (#10B981)\n- `ewallet`: Purple (#8B5CF6)\n- `credit`: Red (#EF4444)\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "accounts": [\n      {\n        "name": "BCA Main",\n        "balance": 15000000,\n        "type": "bank",\n        "color": "#3B82F6"\n      },\n      {\n        "name": "Mandiri Savings",\n        "balance": 8000000,\n        "type": "bank",\n        "color": "#3B82F6"\n      },\n      {\n        "name": "GoPay",\n        "balance": 2500000,\n        "type": "ewallet",\n        "color": "#8B5CF6"\n      },\n      {\n        "name": "Cash",\n        "balance": 1500000,\n        "type": "cash",\n        "color": "#10B981"\n      }\n    ]\n  }\n}\n```',
       security: [{ BearerAuth: [] }],
     },
   });

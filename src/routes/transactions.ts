@@ -7,16 +7,16 @@ import { auth } from '../auth';
 
 export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
   .post('/', async ({ body, headers, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, body.workspaceId, 'transactions.create');
+    const access = await requireWorkspaceAccess(authResult.user.id, body.workspaceId, 'transactions.create');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
@@ -35,7 +35,8 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
       
       return { success: true, data: { transaction } };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
   }, {
     body: t.Object({
@@ -52,26 +53,28 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     }),
     detail: {
       tags: ['Transactions'],
+      summary: 'Create transaction',
+      description: 'Create a new transaction in workspace. Requires owner, admin, or staff role.\n\n**Request Body:**\n```json\n{\n  "workspaceId": "workspace-uuid",\n  "accountId": "account-uuid",\n  "categoryId": "category-uuid",\n  "amount": "75000",\n  "type": "expense",\n  "description": "Lunch at Restaurant",\n  "date": "2026-09-14T12:00:00.000Z",\n  "notes": "Business lunch with client",\n  "metadata": {\n    "location": "Jakarta",\n    "tags": ["business", "client"]\n  },\n  "isStaging": false\n}\n```\n\n**Transaction Types:**\n- `income`: Money received (salary, freelance, investment)\n- `expense`: Money spent (food, transportation, utilities)\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transaction": {\n      "id": "transaction-uuid",\n      "workspaceId": "workspace-uuid",\n      "accountId": "account-uuid",\n      "categoryId": "category-uuid",\n      "amount": "75000",\n      "type": "expense",\n      "description": "Lunch at Restaurant",\n      "date": "2026-09-14T12:00:00.000Z",\n      "notes": "Business lunch with client",\n      "metadata": {\n        "location": "Jakarta",\n        "tags": ["business", "client"]\n      },\n      "isStaging": false,\n      "createdAt": "2026-09-14T12:00:00.000Z",\n      "updatedAt": "2026-09-14T12:00:00.000Z"\n    }\n  }\n}\n```',
       security: [{ BearerAuth: [] }],
     },
   })
 
   .get('/', async ({ headers, query, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     if (!query.workspaceId) {
       set.status = 400;
-      return { error: 'workspaceId query parameter is required' };
+      return { success: false, error: 'workspaceId query parameter is required', code: 'VALIDATION_ERROR' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, query.workspaceId, 'transactions.read');
+    const access = await requireWorkspaceAccess(authResult.user.id, query.workspaceId, 'transactions.read');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
@@ -116,7 +119,8 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
       
       return { success: true, data: { transactions } };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
   }, {
     query: t.Optional(t.Object({
@@ -125,51 +129,60 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     })),
     detail: {
       tags: ['Transactions'],
+      summary: 'List transactions',
+      description: 'Get all transactions in workspace with category and account details. Requires workspace access (owner, admin, staff, member). Results are ordered by date (newest first).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n- `limit` (optional): Maximum number of transactions to return (default: 50)\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transactions": [\n      {\n        "id": "transaction-uuid-1",\n        "workspaceId": "workspace-uuid",\n        "accountId": "account-uuid-1",\n        "categoryId": "category-uuid-1",\n        "amount": "75000",\n        "type": "expense",\n        "description": "Lunch at Restaurant",\n        "date": "2026-09-14T12:00:00.000Z",\n        "notes": "Business lunch with client",\n        "metadata": {\n          "location": "Jakarta"\n        },\n        "isStaging": false,\n        "createdAt": "2026-09-14T12:00:00.000Z",\n        "updatedAt": "2026-09-14T12:00:00.000Z",\n        "category": {\n          "id": "category-uuid-1",\n          "name": "Food & Dining",\n          "type": "expense",\n          "color": "#EF4444",\n          "icon": "🍔"\n        },\n        "account": {\n          "id": "account-uuid-1",\n          "name": "BCA Main",\n          "type": "bank"\n        }\n      },\n      {\n        "id": "transaction-uuid-2",\n        "workspaceId": "workspace-uuid",\n        "accountId": "account-uuid-2",\n        "categoryId": "category-uuid-2",\n        "amount": "15000000",\n        "type": "income",\n        "description": "Monthly Salary",\n        "date": "2026-09-01T00:00:00.000Z",\n        "notes": "September salary",\n        "category": {\n          "id": "category-uuid-2",\n          "name": "Salary",\n          "type": "income",\n          "color": "#10B981",\n          "icon": "💰"\n        },\n        "account": {\n          "id": "account-uuid-2",\n          "name": "BCA Main",\n          "type": "bank"\n        }\n      }\n    ]\n  }\n}\n```',
       security: [{ BearerAuth: [] }],
     },
   })
 
   .get('/:id', async ({ params, headers, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     const [transaction] = await db.select().from(schema.transactions).where(eq(schema.transactions.id, params.id));
     
     if (!transaction) {
       set.status = 404;
-      return { error: 'Transaction not found' };
+      return { success: false, error: 'Transaction not found', code: 'NOT_FOUND' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, transaction.workspaceId, 'transactions.read');
+    const access = await requireWorkspaceAccess(authResult.user.id, transaction.workspaceId, 'transactions.read');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     return { success: true, data: { transaction } };
+  }, {
+    detail: {
+      tags: ['Transactions'],
+      summary: 'Get transaction by ID',
+      description: 'Get transaction details by ID. Requires workspace access (owner, admin, staff, member).\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transaction": {\n      "id": "transaction-uuid",\n      "workspaceId": "workspace-uuid",\n      "accountId": "account-uuid",\n      "categoryId": "category-uuid",\n      "amount": "75000",\n      "type": "expense",\n      "description": "Lunch at Restaurant",\n      "date": "2026-09-14T12:00:00.000Z",\n      "notes": "Business lunch with client",\n      "metadata": {\n        "location": "Jakarta",\n        "tags": ["business", "client"]\n      },\n      "isStaging": false,\n      "createdAt": "2026-09-14T12:00:00.000Z",\n      "updatedAt": "2026-09-14T12:00:00.000Z"\n    }\n  }\n}\n```',
+      security: [{ BearerAuth: [] }],
+    },
   })
 
   .patch('/:id', async ({ params, body, headers, set }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      set.status = auth.status || 401;
-      return { error: auth.error || 'Authentication failed' };
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     const [transaction] = await db.select().from(schema.transactions).where(eq(schema.transactions.id, params.id));
     
     if (!transaction) {
       set.status = 404;
-      return { error: 'Transaction not found' };
+      return { success: false, error: 'Transaction not found', code: 'NOT_FOUND' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, transaction.workspaceId, 'transactions.update');
+    const access = await requireWorkspaceAccess(authResult.user.id, transaction.workspaceId, 'transactions.update');
     if (access.error) {
       set.status = access.status || 403;
-      return { error: access.error };
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
@@ -191,7 +204,8 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
       
       return { success: true, data: { transaction: updatedTransaction } };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
   }, {
     body: t.Object({
@@ -205,30 +219,39 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
       metadata: t.Optional(t.Any()),
       isStaging: t.Optional(t.Boolean()),
     }),
+    detail: {
+      tags: ['Transactions'],
+      summary: 'Update transaction',
+      description: 'Update transaction details. Requires owner, admin, or staff role.\n\n**Request Body:**\n```json\n{\n  "accountId": "account-uuid",\n  "categoryId": "category-uuid",\n  "amount": "100000",\n  "type": "expense",\n  "description": "Lunch at Restaurant Updated",\n  "date": "2026-09-14T12:00:00.000Z",\n  "notes": "Updated notes",\n  "metadata": {\n    "location": "Jakarta",\n    "tags": ["business", "client", "updated"]\n  },\n  "isStaging": false\n}\n```\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transaction": {\n      "id": "transaction-uuid",\n      "amount": "100000",\n      "description": "Lunch at Restaurant Updated",\n      "notes": "Updated notes",\n      "updatedAt": "2026-09-14T15:30:00.000Z"\n    }\n  }\n}\n```',
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .delete('/:id', async ({ params, headers }) => {
-    const auth = await requireAuth(headers);
-    if (auth.error || !auth.user) {
-      return { error: auth.error || 'Authentication failed' };
+  .delete('/:id', async ({ params, headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
     }
     
     const [transaction] = await db.select().from(schema.transactions).where(eq(schema.transactions.id, params.id));
     
     if (!transaction) {
-      return { error: 'Transaction not found' };
+      set.status = 404;
+      return { success: false, error: 'Transaction not found', code: 'NOT_FOUND' };
     }
     
-    const access = await requireWorkspaceAccess(auth.user.id, transaction.workspaceId, 'transactions.delete');
+    const access = await requireWorkspaceAccess(authResult.user.id, transaction.workspaceId, 'transactions.delete');
     if (access.error) {
-      return { error: access.error };
+      set.status = access.status || 403;
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
     }
     
     try {
       await db.update(schema.transactions)
         .set({
           deletedAt: new Date(),
-          deletedBy: auth.user.id,
+          deletedBy: authResult.user.id,
           deletedReason: 'User deletion',
           updatedAt: new Date(),
         })
@@ -236,6 +259,14 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
       
       return { success: true };
     } catch (error: any) {
-      return { error: error.message };
+      set.status = 500;
+      return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
     }
+  }, {
+    detail: {
+      tags: ['Transactions'],
+      summary: 'Delete transaction',
+      description: 'Soft delete transaction (sets deletedAt timestamp). Requires owner, admin, or staff role. Transaction data is retained but marked as deleted.\n\n**Response:**\n```json\n{\n  "success": true\n}\n```',
+      security: [{ BearerAuth: [] }],
+    },
   });

@@ -1,10 +1,15 @@
 import { Elysia, t } from "elysia";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
+import { db } from '../auth/config';
+import { documents } from '../db/schema';
+import { analyzeDocument } from '../services/gemini';
+import { eq } from 'drizzle-orm';
 
 // MinIO S3 Client
 const s3Client = new S3Client({
-  endpoint: process.env.MINIO_ENDPOINT || 'http://minio:9000',
+  endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
   region: 'us-east-1',
   credentials: {
     accessKeyId: process.env.MINIO_ACCESS_KEY || 'minio',
@@ -23,15 +28,21 @@ async function ensureBucket() {
       Key: '.bucket-init',
       Body: '',
     }));
-  } catch (error) {
+  } catch {
     // Bucket might already exist, ignore error
   }
 }
 
 ensureBucket();
 
-export const documentRoutes = new Elysia({ prefix: '/documents' })
-  .post('/upload', async ({ request }) => {
+const baseDocumentRoutes = new Elysia()
+  .post('/upload', async ({ request, headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
+    }
+
     try {
       const formData = await request.formData();
       const file = formData.get('file') as File;
@@ -40,7 +51,15 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
       const workspaceId = formData.get('workspaceId') as string;
 
       if (!file || !filename || !workspaceId) {
-        return { error: 'Missing required fields' };
+        set.status = 400;
+        return { success: false, error: 'Missing required fields', code: 'VALIDATION_ERROR' };
+      }
+
+      // Check workspace access
+      const workspaceAccess = await requireWorkspaceAccess(authResult.user.id, workspaceId);
+      if (workspaceAccess.error) {
+        set.status = workspaceAccess.status || 403;
+        return { success: false, error: workspaceAccess.error, code: 'FORBIDDEN' };
       }
 
       const key = `${workspaceId}/${transactionId || 'unlinked'}/${Date.now()}-${filename}`;
@@ -49,6 +68,7 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
       const arrayBuffer = await file.arrayBuffer();
       const bodyBuffer = Buffer.from(arrayBuffer);
 
+      // Upload to MinIO
       const command = new PutObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
@@ -67,51 +87,115 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
 
       const url = await getSignedUrl(s3Client, getUrlCommand, { expiresIn: 3600 });
 
+      // Analyze with Gemini if it's an image
+      let metadata = null;
+      if (file.type.startsWith('image/')) {
+        try {
+          metadata = await analyzeDocument(bodyBuffer, file.type);
+        } catch (error) {
+          console.error('Gemini analysis failed, continuing without metadata:', error);
+          metadata = { error: 'Analysis failed', confidence: 0 };
+        }
+      }
+
+      // Store in database
+      const [document] = await db.insert(documents).values({
+        workspaceId,
+        transactionId: transactionId || null,
+        fileName: filename,
+        fileUrl: url,
+        fileType: file.type,
+        fileSize: bodyBuffer.length,
+        minioKey: key,
+        metadata,
+        uploadedBy: authResult.user.id,
+      }).returning();
+
       return {
         success: true,
-        key,
-        url,
-        filename,
-        transactionId,
+        data: {
+          document,
+          url,
+        },
       };
     } catch (error) {
       console.error('Upload error:', error);
-      return { error: 'Upload failed', details: error };
+      set.status = 500;
+      return { success: false, error: 'Upload failed', code: 'INTERNAL_ERROR', details: error instanceof Error ? error.message : 'Unknown error' };
     }
   }, {
+    body: t.Object({
+      file: t.File(),
+      filename: t.String(),
+      workspaceId: t.String(),
+      transactionId: t.Optional(t.String()),
+    }),
     detail: {
       tags: ['Documents'],
+      summary: 'Upload document',
+      description: 'Upload a document to workspace with AI analysis. Document will be analyzed by Gemini to extract metadata (amount, date, vendor, etc.). Requires owner, admin, or staff role.',
       security: [{ BearerAuth: [] }],
     },
   })
 
-  .get('/list/:workspaceId', async ({ params }) => {
+  .get('/list/:workspaceId', async ({ params, headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
+    }
+
     try {
       const { workspaceId } = params;
 
-      const command = new ListObjectsV2Command({
-        Bucket: BUCKET_NAME,
-        Prefix: `${workspaceId}/`,
-      });
+      // Check workspace access
+      const workspaceAccess = await requireWorkspaceAccess(authResult.user.id, workspaceId);
+      if (workspaceAccess.error) {
+        set.status = workspaceAccess.status || 403;
+        return { success: false, error: workspaceAccess.error, code: 'FORBIDDEN' };
+      }
 
-      const response = await s3Client.send(command);
+      // Query from database
+      const docs = await db.select().from(documents).where(eq(documents.workspaceId, workspaceId));
 
-      const documents = response.Contents?.map(obj => ({
-        key: obj.Key,
-        size: obj.Size,
-        lastModified: obj.LastModified,
-      })) || [];
-
-      return { documents };
+      return { success: true, data: { documents: docs } };
     } catch (error) {
       console.error('List error:', error);
-      return { error: 'Failed to list documents' };
+      set.status = 500;
+      return { success: false, error: 'Failed to list documents', code: 'INTERNAL_ERROR', details: error instanceof Error ? error.message : 'Unknown error' };
     }
+  }, {
+    detail: {
+      tags: ['Documents'],
+      summary: 'List documents',
+      description: 'Get all documents in workspace with extracted metadata. Requires workspace access (owner, admin, staff, member).',
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .get('/download/:key', async ({ params }) => {
+  .get('/download/:key', async ({ params, headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
+    }
+
     try {
       const { key } = params;
+
+      // Get document from database to check workspace access
+      const [doc] = await db.select().from(documents).where(eq(documents.minioKey, key));
+      if (!doc) {
+        set.status = 404;
+        return { success: false, error: 'Document not found', code: 'NOT_FOUND' };
+      }
+
+      // Check workspace access
+      const workspaceAccess = await requireWorkspaceAccess(authResult.user.id, doc.workspaceId);
+      if (workspaceAccess.error) {
+        set.status = workspaceAccess.status || 403;
+        return { success: false, error: workspaceAccess.error, code: 'FORBIDDEN' };
+      }
 
       const command = new GetObjectCommand({
         Bucket: BUCKET_NAME,
@@ -120,17 +204,46 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
 
       const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
-      return { url };
+      return { success: true, data: { url, document: doc } };
     } catch (error) {
       console.error('Download error:', error);
-      return { error: 'Failed to generate download URL' };
+      set.status = 500;
+      return { success: false, error: 'Failed to generate download URL', code: 'INTERNAL_ERROR', details: error instanceof Error ? error.message : 'Unknown error' };
     }
+  }, {
+    detail: {
+      tags: ['Documents'],
+      summary: 'Download document',
+      description: 'Generate presigned URL to download document with metadata. Requires workspace access (owner, admin, staff, member).',
+      security: [{ BearerAuth: [] }],
+    },
   })
 
-  .delete('/:key', async ({ params }) => {
+  .delete('/:key', async ({ params, headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
+    }
+
     try {
       const { key } = params;
 
+      // Get document from database to check workspace access
+      const [doc] = await db.select().from(documents).where(eq(documents.minioKey, key));
+      if (!doc) {
+        set.status = 404;
+        return { success: false, error: 'Document not found', code: 'NOT_FOUND' };
+      }
+
+      // Check workspace access (owner, admin, staff only)
+      const workspaceAccess = await requireWorkspaceAccess(authResult.user.id, doc.workspaceId);
+      if (workspaceAccess.error || (workspaceAccess.role !== 'owner' && workspaceAccess.role !== 'admin' && workspaceAccess.role !== 'staff')) {
+        set.status = workspaceAccess.status || 403;
+        return { success: false, error: 'Access denied', code: 'FORBIDDEN' };
+      }
+
+      // Delete from MinIO
       const command = new DeleteObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
@@ -138,9 +251,73 @@ export const documentRoutes = new Elysia({ prefix: '/documents' })
 
       await s3Client.send(command);
 
+      // Delete from database
+      await db.delete(documents).where(eq(documents.minioKey, key));
+
       return { success: true };
     } catch (error) {
       console.error('Delete error:', error);
-      return { error: 'Failed to delete document' };
+      set.status = 500;
+      return { success: false, error: 'Failed to delete document', code: 'INTERNAL_ERROR', details: error instanceof Error ? error.message : 'Unknown error' };
     }
+  }, {
+    detail: {
+      tags: ['Documents'],
+      summary: 'Delete document',
+      description: 'Delete document from workspace and MinIO storage. Requires owner, admin, or staff role.',
+      security: [{ BearerAuth: [] }],
+    },
+  })
+
+  .patch('/:id', async ({ params, body, headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
+    }
+
+    try {
+      const { id } = params;
+      const [doc] = await db.select().from(documents).where(eq(documents.id, id));
+      if (!doc) {
+        set.status = 404;
+        return { success: false, error: 'Document not found', code: 'NOT_FOUND' };
+      }
+
+      const workspaceAccess = await requireWorkspaceAccess(authResult.user.id, doc.workspaceId);
+      if (workspaceAccess.error) {
+        set.status = workspaceAccess.status || 403;
+        return { success: false, error: workspaceAccess.error, code: 'FORBIDDEN' };
+      }
+
+      const [updated] = await db.update(documents)
+        .set({
+          transactionId: body.transactionId,
+        })
+        .where(eq(documents.id, id))
+        .returning();
+
+      return { success: true, data: { document: updated } };
+    } catch (error) {
+      console.error('Update document error:', error);
+      set.status = 500;
+      return { success: false, error: 'Failed to update document', code: 'INTERNAL_ERROR', details: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }, {
+    body: t.Object({
+      transactionId: t.String(),
+    }),
+    detail: {
+      tags: ['Documents'],
+      summary: 'Link document to transaction',
+      description: 'Update document to link with a transaction ID.',
+      security: [{ BearerAuth: [] }],
+    },
   });
+
+export const documentRoutes = new Elysia({ prefix: '/documents' })
+  .use(baseDocumentRoutes);
+
+export const apiDocumentRoutes = new Elysia({ prefix: '/api/documents' })
+  .use(baseDocumentRoutes);
+

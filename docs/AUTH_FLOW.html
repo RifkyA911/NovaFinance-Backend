@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaJournal Auth Session Management Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #667eea;
+            margin: 30px 0 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .architecture-diagram {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 40px 0;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        .component {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            min-width: 150px;
+        }
+        .arrow {
+            font-size: 40px;
+            color: #667eea;
+        }
+        .flow-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        .flow-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+        .flow-step {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 3px solid #764ba2;
+            position: relative;
+            padding-left: 40px;
+        }
+        .flow-step::before {
+            content: attr(data-step);
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #a0aec0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .highlight {
+            color: #48bb78;
+        }
+        .warning {
+            color: #f6ad55;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #667eea;
+            color: white;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-success {
+            background: #48bb78;
+            color: white;
+        }
+        .badge-error {
+            background: #f56565;
+            color: white;
+        }
+        .badge-warning {
+            background: #ed8936;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 NovaJournal Auth Session Management</h1>
+
+        <h2>Business Architecture</h2>
+        <div class="architecture-diagram">
+            <div class="component">Frontend<br>(Next.js)</div>
+            <div class="arrow">→</div>
+            <div class="component">Backend<br>(Elysia)</div>
+            <div class="arrow">→</div>
+            <div class="component">BetterAuth<br>(Session Manager)</div>
+            <div class="arrow">→</div>
+            <div class="component">Database<br>(PostgreSQL)</div>
+        </div>
+
+        <h2>Authentication Flow</h2>
+        <div class="flow-section">
+            <h3>Sign-In Process</h3>
+            <div class="flow-step" data-step="1">
+                <strong>User submits credentials</strong> to <code>/api/auth/sign-in</code>
+                <div class="code-block">POST /api/auth/sign-in<br>{ "email": "admin@example.com", "password": "admin123" }</div>
+            </div>
+            <div class="flow-step" data-step="2">
+                <strong>Elysia route handler</strong> forwards to BetterAuth native endpoint <code>/sign-in/email</code>
+                <div class="code-block">url.pathname = '/api/auth/sign-in/email'<br>return auth.handler(newRequest)</div>
+            </div>
+            <div class="flow-step" data-step="3">
+                <strong>BetterAuth validates</strong> credentials against database
+                <div class="code-block">bcrypt.compare(password, hash)<br>Query user from PostgreSQL</div>
+            </div>
+            <div class="flow-step" data-step="4">
+                <strong>Session created</strong> and cookie set
+                <div class="code-block">Set-Cookie: better-auth.session_token=xxx<br>Response: { "token": "xxx", "user": {...} }</div>
+            </div>
+            <div class="flow-step" data-step="5">
+                <strong>Token returned</strong> to frontend for storage
+                <div class="code-block"><span class="highlight">200 OK</span><br>{ "redirect": false, "token": "yZ298ub6...", "user": {...} }</div>
+            </div>
+        </div>
+
+        <h2>Session Validation Flow</h2>
+        <div class="flow-container">
+            <div class="flow-section">
+                <h3>Cookie-Based Auth (Browser)</h3>
+                <div class="flow-step" data-step="1">
+                    <strong>Request with cookie</strong> sent automatically by browser
+                    <div class="code-block">Cookie: better-auth.session_token=xxx</div>
+                </div>
+                <div class="flow-step" data-step="2">
+                    <strong>Middleware validates</strong> via <code>requireAuth(headers)</code>
+                    <div class="code-block">auth.api.getSession({ headers })</div>
+                </div>
+                <div class="flow-step" data-step="3">
+                    <strong>BetterAuth checks</strong> session in database
+                    <div class="code-block">SELECT * FROM session WHERE token = xxx</div>
+                </div>
+                <div class="flow-step" data-step="4">
+                    <strong>User data returned</strong> if session valid
+                    <div class="code-block"><span class="highlight">200 OK</span><br>{ user: {...} }</div>
+                </div>
+                <div class="flow-step" data-step="5">
+                    <strong>Access granted</strong> to protected route
+                </div>
+            </div>
+            <div class="flow-section">
+                <h3>Bearer Token Auth (API/Mobile)</h3>
+                <div class="flow-step" data-step="1">
+                    <strong>Request with Bearer token</strong> in Authorization header
+                    <div class="code-block">Authorization: Bearer yZ298ub6...</div>
+                </div>
+                <div class="flow-step" data-step="2">
+                    <strong>Middleware extracts token</strong> and converts to cookie format
+                    <div class="code-block">cookie: better-auth.session_token=token</div>
+                </div>
+                <div class="flow-step" data-step="3">
+                    <strong>BetterAuth validates</strong> session
+                    <div class="code-block">auth.api.getSession({ headers: { cookie } })</div>
+                </div>
+                <div class="flow-step" data-step="4">
+                    <strong>User data returned</strong> if token valid
+                    <div class="code-block"><span class="highlight">200 OK</span><br>{ user: {...} }</div>
+                </div>
+                <div class="flow-step" data-step="5">
+                    <strong>Access granted</strong> to protected route
+                </div>
+            </div>
+        </div>
+
+        <h2>RBAC Authorization Flow</h2>
+        <div class="flow-section">
+            <div class="flow-step" data-step="1">
+                <strong>After auth success</strong>, user ID is available
+                <div class="code-block">const { user } = await requireAuth(headers)</div>
+            </div>
+            <div class="flow-step" data-step="2">
+                <strong>Workspace access check</strong> via <code>requireWorkspaceAccess()</code>
+                <div class="code-block">const { role, workspace } = await requireWorkspaceAccess(userId, workspaceId)</div>
+            </div>
+            <div class="flow-step" data-step="3">
+                <strong>Role determination</strong>:
+                <ul>
+                    <li><span class="badge badge-success">Owner</span> - Full access (workspace.ownerId === userId)</li>
+                    <li><span class="badge badge-warning">Admin</span> - Manage settings, invite members</li>
+                    <li><span class="badge badge-warning">Staff</span> - Limited operations</li>
+                    <li><span class="badge badge-error">Member</span> - Basic read access</li>
+                </ul>
+            </div>
+            <div class="flow-step" data-step="4">
+                <strong>Permission check</strong> based on role
+                <div class="code-block">if (role === 'owner' || role === 'admin') { allow() }</div>
+            </div>
+            <div class="flow-step" data-step="5">
+                <strong>Access granted/denied</strong> with appropriate status code
+                <div class="code-block"><span class="highlight">200 OK</span> or <span class="warning">403 Forbidden</span></div>
+            </div>
+        </div>
+
+        <h2>API Endpoints</h2>
+        <table>
+            <tr>
+                <th>Endpoint</th>
+                <th>Method</th>
+                <th>Description</th>
+                <th>Auth Required</th>
+            </tr>
+            <tr>
+                <td><code>/api/auth/sign-in</code></td>
+                <td>POST</td>
+                <td>Authenticate user, return session token</td>
+                <td><span class="badge badge-warning">No</span></td>
+            </tr>
+            <tr>
+                <td><code>/api/auth/sign-up</code></td>
+                <td>POST</td>
+                <td>Create new user account</td>
+                <td><span class="badge badge-warning">No</span></td>
+            </tr>
+            <tr>
+                <td><code>/api/auth/sign-out</code></td>
+                <td>POST</td>
+                <td>End user session</td>
+                <td><span class="badge badge-success">Yes</span></td>
+            </tr>
+            <tr>
+                <td><code>/api/auth/session</code></td>
+                <td>GET</td>
+                <td>Get current user session</td>
+                <td><span class="badge badge-success">Yes</span></td>
+            </tr>
+        </table>
+
+        <h2>Error Handling</h2>
+        <table>
+            <tr>
+                <th>Status Code</th>
+                <th>Error Code</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>401</td>
+                <td>UNAUTHORIZED</td>
+                <td>Invalid or expired session, missing credentials</td>
+            </tr>
+            <tr>
+                <td>403</td>
+                <td>FORBIDDEN</td>
+                <td>Insufficient permissions for workspace access</td>
+            </tr>
+            <tr>
+                <td>400</td>
+                <td>VALIDATION_ERROR</td>
+                <td>Missing or invalid request parameters</td>
+            </tr>
+            <tr>
+                <td>500</td>
+                <td>INTERNAL_ERROR</td>
+                <td>Server-side error during processing</td>
+            </tr>
+        </table>
+
+        <h2>Key Components</h2>
+        <div class="flow-container">
+            <div class="flow-section">
+                <h3>BetterAuth Configuration</h3>
+                <div class="code-block">
+baseURL: http://localhost:8080<br>
+secret: your-secret-key-min-32-chars-long<br>
+trustedOrigins: [http://localhost:3000]<br>
+advanced: {<br>
+&nbsp;&nbsp;useSecureCookies: false,<br>
+&nbsp;&nbsp;disableCSRFCheck: true,<br>
+&nbsp;&nbsp;cookiePrefix: 'better-auth'<br>
+}
+                </div>
+            </div>
+            <div class="flow-section">
+                <h3>Middleware Functions</h3>
+                <div class="code-block">
+requireAuth(headers)<br>
+&nbsp;&nbsp;→ Validates session<br>
+&nbsp;&nbsp;→ Returns user data<br><br>
+requireWorkspaceAccess(userId, workspaceId)<br>
+&nbsp;&nbsp;→ Checks role<br>
+&nbsp;&nbsp;→ Returns permissions
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

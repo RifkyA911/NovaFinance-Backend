@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaJournal Gemini RAG Document Analysis Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        h2 {
+            color: #667eea;
+            margin: 30px 0 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        h3 {
+            color: #764ba2;
+            margin: 20px 0 15px;
+        }
+        .mindmap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 40px 0;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        .mindmap-level {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .mindmap-node {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            min-width: 200px;
+            position: relative;
+        }
+        .mindmap-node::after {
+            content: '↓';
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #667eea;
+        }
+        .mindmap-node:last-child::after {
+            display: none;
+        }
+        .flow-diagram {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .flow-box {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+        .flow-step {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 3px solid #764ba2;
+            position: relative;
+            padding-left: 40px;
+        }
+        .flow-step::before {
+            content: attr(data-step);
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #a0aec0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .highlight {
+            color: #48bb78;
+        }
+        .warning {
+            color: #f6ad55;
+        }
+        .info {
+            color: #4299e1;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #667eea;
+            color: white;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-success {
+            background: #48bb78;
+            color: white;
+        }
+        .badge-error {
+            background: #f56565;
+            color: white;
+        }
+        .badge-warning {
+            background: #ed8936;
+            color: white;
+        }
+        .badge-info {
+            background: #4299e1;
+            color: white;
+        }
+        .metadata-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metadata-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #764ba2;
+        }
+        .metadata-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .architecture {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 40px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            flex-wrap: wrap;
+        }
+        .component {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 35px;
+            border-radius: 15px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            min-width: 180px;
+            margin: 10px;
+        }
+        .arrow {
+            font-size: 40px;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 NovaJournal Gemini RAG Document Analysis</h1>
+
+        <h2>System Architecture</h2>
+        <div class="architecture">
+            <div class="component">Frontend<br>(DocumentUpload)</div>
+            <div class="arrow">→</div>
+            <div class="component">Backend<br>(Elysia API)</div>
+            <div class="arrow">→</div>
+            <div class="component">MinIO<br>(File Storage)</div>
+            <div class="arrow">→</div>
+            <div class="component">Gemini API<br>(AI Analysis)</div>
+            <div class="arrow">→</div>
+            <div class="component">PostgreSQL<br>(Metadata DB)</div>
+        </div>
+
+        <h2>Mindmap: Document Analysis Flow</h2>
+        <div class="mindmap">
+            <div class="mindmap-level">
+                <div class="mindmap-node">📄 User Uploads Document</div>
+            </div>
+            <div class="mindmap-level">
+                <div class="mindmap-node">📤 Send to Backend API</div>
+            </div>
+            <div class="mindmap-level">
+                <div class="mindmap-node">💾 Store in MinIO</div>
+                <div class="mindmap-node">🤖 Send to Gemini API</div>
+            </div>
+            <div class="mindmap-level">
+                <div class="mindmap-node">🔍 Extract Metadata</div>
+            </div>
+            <div class="mindmap-level">
+                <div class="mindmap-node">📊 Store in Database</div>
+                <div class="mindmap-node">✅ Return to Frontend</div>
+            </div>
+        </div>
+
+        <h2>Detailed Flow</h2>
+        <div class="flow-diagram">
+            <div class="flow-box">
+                <h3>1. Document Upload</h3>
+                <div class="flow-step" data-step="1">
+                    <strong>User selects file</strong> (Image/PDF)
+                    <div class="code-block">File: receipt.jpg / invoice.pdf<br>Type: image/jpeg, application/pdf</div>
+                </div>
+                <div class="flow-step" data-step="2">
+                    <strong>Frontend creates FormData</strong>
+                    <div class="code-block">formData.append('file', selectedFile)<br>formData.append('workspaceId', workspaceId)<br>formData.append('transactionId', transactionId)</div>
+                </div>
+                <div class="flow-step" data-step="3">
+                    <strong>POST to backend</strong>
+                    <div class="code-block">POST /api/documents/upload<br>Content-Type: multipart/form-data</div>
+                </div>
+            </div>
+
+            <div class="flow-box">
+                <h3>2. Backend Processing</h3>
+                <div class="flow-step" data-step="1">
+                    <strong>Validate request</strong> (auth, workspace access)
+                    <div class="code-block">requireAuth(headers)<br>requireWorkspaceAccess(userId, workspaceId)</div>
+                </div>
+                <div class="flow-step" data-step="2">
+                    <strong>Upload to MinIO</strong>
+                    <div class="code-block">s3Client.putObject({<br>&nbsp;&nbsp;Bucket: 'novajournal-docs',<br>&nbsp;&nbsp;Key: uniqueKey,<br>&nbsp;&nbsp;Body: file<br>})</div>
+                </div>
+                <div class="flow-step" data-step="3">
+                    <strong>Get file URL</strong> from MinIO
+                    <div class="code-block">fileUrl: http://localhost:9000/novajournal-docs/xxx.jpg</div>
+                </div>
+            </div>
+
+            <div class="flow-box">
+                <h3>3. Gemini AI Analysis</h3>
+                <div class="flow-step" data-step="1">
+                    <strong>Prepare prompt</strong> for Gemini
+                    <div class="code-block">"Extract metadata from this document:<br>- Document type (receipt, invoice, contract)<br>- Amount/currency<br>- Date<br>- Vendor/merchant<br>- Line items<br>- Categories"</div>
+                </div>
+                <div class="flow-step" data-step="2">
+                    <strong>Call Gemini API</strong>
+                    <div class="code-block">gemini.generateContent({<br>&nbsp;&nbsp;prompt: analysisPrompt,<br>&nbsp;&nbsp;image: fileBuffer<br>})</div>
+                </div>
+                <div class="flow-step" data-step="3">
+                    <strong>Parse response</strong> to structured JSON
+                    <div class="code-block">{<br>&nbsp;&nbsp;"documentType": "invoice",<br>&nbsp;&nbsp;"amount": 150.00,<br>&nbsp;&nbsp;"currency": "USD",<br>&nbsp;&nbsp;"date": "2024-09-14",<br>&nbsp;&nbsp;"vendor": "Amazon",<br>&nbsp;&nbsp;"lineItems": [...],<br>&nbsp;&nbsp;"categories": ["electronics"]<br>}</div>
+                </div>
+            </div>
+
+            <div class="flow-box">
+                <h3>4. Database Storage</h3>
+                <div class="flow-step" data-step="1">
+                    <strong>Create document record</strong>
+                    <div class="code-block">INSERT INTO documents (<br>&nbsp;&nbsp;id, workspaceId, transactionId,<br>&nbsp;&nbsp;fileName, fileUrl, fileType,<br>&nbsp;&nbsp;metadata, uploadedBy<br>)</div>
+                </div>
+                <div class="flow-step" data-step="2">
+                    <strong>Store extracted metadata</strong> as JSONB
+                    <div class="code-block">metadata: {<br>&nbsp;&nbsp;"documentType": "invoice",<br>&nbsp;&nbsp;"amount": 150.00,<br>&nbsp;&nbsp;"extractedText": "...",<br>&nbsp;&nbsp;"entities": [...]<br>}</div>
+                </div>
+                <div class="flow-step" data-step="3">
+                    <strong>Return success</strong> to frontend
+                    <div class="code-block"><span class="highlight">201 Created</span><br>{<br>&nbsp;&nbsp;"success": true,<br>&nbsp;&nbsp;"data": { document, metadata }<br>}</div>
+                </div>
+            </div>
+        </div>
+
+        <h2>Extracted Metadata Fields</h2>
+        <div class="metadata-fields">
+            <div class="metadata-item">
+                <strong>📄 Document Type</strong>
+                <span class="badge badge-info">receipt, invoice, contract, receipt, statement</span>
+            </div>
+            <div class="metadata-item">
+                <strong>💰 Amount</strong>
+                <span class="badge badge-success">Numeric value with currency</span>
+            </div>
+            <div class="metadata-item">
+                <strong>📅 Date</strong>
+                <span class="badge badge-warning">ISO format date</span>
+            </div>
+            <div class="metadata-item">
+                <strong>🏪 Vendor/Merchant</strong>
+                <span class="badge badge-info">Company name</span>
+            </div>
+            <div class="metadata-item">
+                <strong>📝 Line Items</strong>
+                <span class="badge badge-success">Array of items with prices</span>
+            </div>
+            <div class="metadata-item">
+                <strong>🏷️ Categories</strong>
+                <span class="badge badge-warning">Auto-categorized tags</span>
+            </div>
+            <div class="metadata-item">
+                <strong>📄 Extracted Text</strong>
+                <span class="badge badge-info">OCR text content</span>
+            </div>
+            <div class="metadata-item">
+                <strong>🔍 Entities</strong>
+                <span class="badge badge-success">Names, addresses, IDs</span>
+            </div>
+        </div>
+
+        <h2>API Endpoints</h2>
+        <table>
+            <tr>
+                <th>Endpoint</th>
+                <th>Method</th>
+                <th>Description</th>
+                <th>Auth Required</th>
+            </tr>
+            <tr>
+                <td><code>/api/documents/upload</code></td>
+                <td>POST</td>
+                <td>Upload document, analyze with Gemini, store metadata</td>
+                <td><span class="badge badge-success">Yes</span></td>
+            </tr>
+            <tr>
+                <td><code>/api/documents/list/:workspaceId</code></td>
+                <td>GET</td>
+                <td>List all documents with metadata</td>
+                <td><span class="badge badge-success">Yes</span></td>
+            </tr>
+            <tr>
+                <td><code>/api/documents/:id</code></td>
+                <td>GET</td>
+                <td>Get single document with full metadata</td>
+                <td><span class="badge badge-success">Yes</span></td>
+            </tr>
+            <tr>
+                <td><code>/api/documents/:id</code></td>
+                <td>DELETE</td>
+                <td>Delete document and metadata</td>
+                <td><span class="badge badge-success">Yes</span></td>
+            </tr>
+        </table>
+
+        <h2>Environment Variables Required</h2>
+        <table>
+            <tr>
+                <th>Variable</th>
+                <th>Description</th>
+                <th>Example</th>
+            </tr>
+            <tr>
+                <td><code>GEMINI_API_KEY</code></td>
+                <td>Google Gemini API key for document analysis</td>
+                <td><code>AIzaSy...</code></td>
+            </tr>
+            <tr>
+                <td><code>MINIO_ENDPOINT</code></td>
+                <td>MinIO server endpoint</td>
+                <td><code>http://localhost:9000</code></td>
+            </tr>
+            <tr>
+                <td><code>MINIO_ACCESS_KEY</code></td>
+                <td>MinIO access key</td>
+                <td><code>minio</code></td>
+            </tr>
+            <tr>
+                <td><code>MINIO_SECRET_KEY</code></td>
+                <td>MinIO secret key</td>
+                <td><code>minio123</code></td>
+            </tr>
+            <tr>
+                <td><code>MINIO_BUCKET</code></td>
+                <td>MinIO bucket name for documents</td>
+                <td><code>novajournal-docs</code></td>
+            </tr>
+        </table>
+
+        <h2>Implementation Components</h2>
+        <div class="flow-diagram">
+            <div class="flow-box">
+                <h3>Backend: Gemini Service</h3>
+                <div class="code-block">
+// src/services/gemini.ts<br>
+import { GoogleGenerativeAI } from '@google/generative-ai';<br><br>
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);<br><br>
+export async function analyzeDocument(fileBuffer: Buffer, mimeType: string) {<br>
+&nbsp;&nbsp;const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });<br>
+&nbsp;&nbsp;const prompt = `Extract metadata...`;<br>
+&nbsp;&nbsp;const result = await model.generateContent([prompt, fileBuffer]);<br>
+&nbsp;&nbsp;return parseMetadata(result.response.text());<br>
+}
+                </div>
+            </div>
+            <div class="flow-box">
+                <h3>Backend: Document Route</h3>
+                <div class="code-block">
+// src/routes/documents.ts<br>
+.post('/upload', async ({ request, headers, set }) => {<br>
+&nbsp;&nbsp;const authResult = await requireAuth(headers);<br>
+&nbsp;&nbsp;const formData = await request.formData();<br>
+&nbsp;&nbsp;const file = formData.get('file') as File;<br>
+&nbsp;&nbsp;<br>
+&nbsp;&nbsp;// Upload to MinIO<br>
+&nbsp;&nbsp;const fileUrl = await uploadToMinIO(file);<br>
+&nbsp;&nbsp;<br>
+&nbsp;&nbsp;// Analyze with Gemini<br>
+&nbsp;&nbsp;const metadata = await analyzeDocument(fileBuffer, file.type);<br>
+&nbsp;&nbsp;<br>
+&nbsp;&nbsp;// Store in DB<br>
+&nbsp;&nbsp;const document = await db.insert(documents).values({...});<br>
+&nbsp;&nbsp;return { success: true, data: document };<br>
+})
+                </div>
+            </div>
+            <div class="flow-box">
+                <h3>Database Schema</h3>
+                <div class="code-block">
+// src/db/schema.ts<br>
+export const documents = pgTable('documents', {<br>
+&nbsp;&nbsp;id: text().primaryKey(),<br>
+&nbsp;&nbsp;workspaceId: text().notNull(),<br>
+&nbsp;&nbsp;transactionId: text(),<br>
+&nbsp;&nbsp;fileName: text().notNull(),<br>
+&nbsp;&nbsp;fileUrl: text().notNull(),<br>
+&nbsp;&nbsp;fileType: text().notNull(),<br>
+&nbsp;&nbsp;metadata: jsonb().$type<DocumentMetadata>(),<br>
+&nbsp;&nbsp;uploadedBy: text().notNull(),<br>
+&nbsp;&nbsp;uploadedAt: timestamp().defaultNow()<br>
+});
+                </div>
+            </div>
+        </div>
+
+        <h2>Error Handling</h2>
+        <table>
+            <tr>
+                <th>Status Code</th>
+                <th>Error Code</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>400</td>
+                <td>INVALID_FILE</td>
+                <td>Unsupported file type or corrupted file</td>
+            </tr>
+            <tr>
+                <td>413</td>
+                <td>FILE_TOO_LARGE</td>
+                <td>File exceeds size limit (e.g., 10MB)</td>
+            </tr>
+            <tr>
+                <td>500</td>
+                <td>GEMINI_ERROR</td>
+                <td>Failed to analyze with Gemini API</td>
+            </tr>
+            <tr>
+                <td>500</td>
+                <td>MINIO_ERROR</td>
+                <td>Failed to upload to MinIO storage</td>
+            </tr>
+            <tr>
+                <td>500</td>
+                <td>DB_ERROR</td>
+                <td>Failed to store metadata in database</td>
+            </tr>
+        </table>
+
+        <h2>Benefits</h2>
+        <div class="metadata-fields">
+            <div class="metadata-item">
+                <strong>⚡ Automated Data Entry</strong>
+                <p>No manual typing of receipt/invoice details</p>
+            </div>
+            <div class="metadata-item">
+                <strong>🎯 High Accuracy</strong>
+                <p>Gemini's advanced OCR and understanding</p>
+            </div>
+            <div class="metadata-item">
+                <strong>🏷️ Smart Categorization</strong>
+                <p>Auto-tag documents based on content</p>
+            </div>
+            <div class="metadata-item">
+                <strong>🔍 Searchable</strong>
+                <p>Full-text search on extracted metadata</p>
+            </div>
+            <div class="metadata-item">
+                <strong>📊 Analytics Ready</strong>
+                <p>Structured data for reporting</p>
+            </div>
+            <div class="metadata-item">
+                <strong>💾 Centralized Storage</strong>
+                <p>All documents in MinIO with metadata in DB</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

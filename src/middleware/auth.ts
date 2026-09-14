@@ -5,16 +5,21 @@ import * as schema from '../db/schema';
 import * as authSchema from '../db/auth-schema';
 
 export async function requireAuth(headers: any) {
-  const session = await auth.api.getSession({
-    headers: headers,
-  });
+  try {
+    const session = await auth.api.getSession({
+      headers: headers,
+    });
 
-  if (!session) {
-    console.log('Auth failed: Invalid session');
-    return { error: 'Invalid or expired session', status: 401 };
+    if (!session || !session.user) {
+      console.log('Auth failed: Invalid or expired session');
+      return { error: 'Invalid or expired session', status: 401 };
+    }
+
+    return { user: session.user };
+  } catch (error) {
+    console.error('Auth error:', error);
+    return { error: 'Authentication failed', status: 401 };
   }
-
-  return { user: session.user };
 }
 
 export async function getWorkspaceRole(userId: string, workspaceId: string) {

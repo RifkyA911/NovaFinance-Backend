@@ -25,5 +25,6 @@ export const auth = betterAuth({
   advanced: {
     useSecureCookies: false,
     disableCSRFCheck: true,
+    cookiePrefix: 'better-auth',
   },
 });

@@ -1,17 +1,9 @@
 import { pgTable, uuid, varchar, decimal, timestamp, integer, boolean, jsonb, text, index } from 'drizzle-orm/pg-core';
 
-// Users table (for Better Auth)
-export const users = pgTable('user', {
-  id: text('id').primaryKey(),
-  email: varchar('email', { length: 255 }).notNull().unique(),
-  name: varchar('name', { length: 255 }).notNull(),
-  emailVerified: timestamp('email_verified'),
-  image: varchar('image', { length: 500 }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  emailIdx: index('users_email_idx').on(table.email),
-}));
+export * from './auth-schema';
+import { user } from './auth-schema';
+export const users = user;
+
 
 // Workspaces table
 export const workspaces = pgTable('workspaces', {
@@ -137,7 +129,7 @@ export const invoices = pgTable('invoices', {
 export const auditLogs = pgTable('audit_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
   action: varchar('action', { length: 100 }).notNull(), // 'create', 'update', 'delete', 'login', 'logout', etc.
   entityType: varchar('entity_type', { length: 100 }).notNull(), // 'transaction', 'workspace', 'invoice', etc.
   entityId: varchar('entity_id', { length: 128 }),
@@ -173,4 +165,25 @@ export const menus = pgTable('menus', {
   workspaceIdIdx: index('menus_workspace_id_idx').on(table.workspaceId),
   parentIdIdx: index('menus_parent_id_idx').on(table.parentId),
   orderIdx: index('menus_order_idx').on(table.order),
+}));
+
+// Documents table
+export const documents = pgTable('documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  transactionId: uuid('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+  fileName: varchar('file_name', { length: 255 }).notNull(),
+  fileUrl: text('file_url').notNull(),
+  fileType: varchar('file_type', { length: 100 }).notNull(),
+  fileSize: integer('file_size'),
+  minioKey: text('minio_key').notNull(),
+  metadata: jsonb('metadata'), // Gemini extracted metadata
+  uploadedBy: text('uploaded_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+  deletedBy: text('deleted_by').references(() => users.id),
+}, (table) => ({
+  workspaceIdIdx: index('documents_workspace_id_idx').on(table.workspaceId),
+  transactionIdIdx: index('documents_transaction_id_idx').on(table.transactionId),
+  uploadedByIdx: index('documents_uploaded_by_idx').on(table.uploadedBy),
 }));

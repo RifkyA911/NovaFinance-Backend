@@ -13,6 +13,7 @@ import { documentRoutes, apiDocumentRoutes } from "./routes/documents";
 
 const app = new Elysia()
   .use(swagger({
+    exclude: ['/documents', /^\/documents(\/.*)?$/],
     documentation: {
       info: {
         title: 'NovaJournal API',
@@ -20,14 +21,16 @@ const app = new Elysia()
         description: 'Personal finance tracking API with AI-powered document analysis',
       },
       tags: [
-        { name: 'Auth', description: 'Authentication endpoints' },
+        { name: 'Auth', description: 'Authentication and session management' },
         { name: 'Workspaces', description: 'Workspace management' },
         { name: 'Categories', description: 'Category management' },
-        { name: 'Accounts', description: 'Account management' },
-        { name: 'Transactions', description: 'Transaction management' },
-        { name: 'Invoices', description: 'Invoice management' },
-        { name: 'Dashboard', description: 'Dashboard data' },
-        { name: 'AI', description: 'AI-powered features' },
+        { name: 'Accounts', description: 'Financial account management' },
+        { name: 'Transactions', description: 'Transaction tracking and management' },
+        { name: 'Invoices', description: 'Invoice creation and management' },
+        { name: 'Dashboard', description: 'Dashboard analytics and financial metrics' },
+        { name: 'Documents', description: 'Document upload and management' },
+        { name: 'AI', description: 'AI-powered financial insights' },
+        { name: 'System', description: 'System health and API status' },
       ],
       components: {
         securitySchemes: {
@@ -61,13 +64,25 @@ const app = new Elysia()
     message: "NovaJournal API",
     version: "1.0.0",
     status: "operational",
-  }))
+  }), {
+    detail: {
+      tags: ['System'],
+      summary: 'API index',
+      description: 'Get API service name, version, and operational status.',
+    },
+  })
 
   // Health check
   .get("/health", () => ({
     status: "healthy",
     timestamp: new Date().toISOString(),
-  }))
+  }), {
+    detail: {
+      tags: ['System'],
+      summary: 'Health check',
+      description: 'Check service health status and current timestamp.',
+    },
+  })
   .onError(({ code, error }) => {
     console.error('Elysia Error:', code, error);
   })

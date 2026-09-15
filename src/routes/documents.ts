@@ -26,7 +26,7 @@ async function ensureBucket() {
     await s3Client.send(new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: '.bucket-init',
-      Body: '',
+      Body: Buffer.from(''),
     }));
   } catch {
     // Bucket might already exist, ignore error
@@ -36,7 +36,7 @@ async function ensureBucket() {
 ensureBucket();
 
 const baseDocumentRoutes = new Elysia()
-  .post('/upload', async ({ request, headers, set }) => {
+  .post('/upload', async ({ body, headers, set }) => {
     const authResult = await requireAuth(headers);
     if (authResult.error || !authResult.user) {
       set.status = authResult.status || 401;
@@ -44,11 +44,7 @@ const baseDocumentRoutes = new Elysia()
     }
 
     try {
-      const formData = await request.formData();
-      const file = formData.get('file') as File;
-      const filename = formData.get('filename') as string;
-      const transactionId = formData.get('transactionId') as string;
-      const workspaceId = formData.get('workspaceId') as string;
+      const { file, filename, workspaceId, transactionId } = body;
 
       if (!file || !filename || !workspaceId) {
         set.status = 400;

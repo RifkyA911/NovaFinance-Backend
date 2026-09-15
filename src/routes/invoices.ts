@@ -6,7 +6,7 @@ import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
 
 export const invoiceRoutes = new Elysia({ prefix: '/api/invoices' })
-  .post('/', async ({ body, headers, set }) => {
+  .post('', async ({ body, headers, set }) => {
     const authResult = await requireAuth(headers);
     if (authResult.error || !authResult.user) {
       set.status = authResult.status || 401;
@@ -63,7 +63,7 @@ export const invoiceRoutes = new Elysia({ prefix: '/api/invoices' })
     },
   })
 
-  .get('/', async ({ headers, query, set }) => {
+  .get('', async ({ headers, query, set }) => {
     const authResult = await requireAuth(headers);
     if (authResult.error || !authResult.user) {
       set.status = authResult.status || 401;

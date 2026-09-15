@@ -6,7 +6,7 @@ import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
 
 export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
-  .post('/', async ({ body, headers, set }) => {
+  .post('', async ({ body, headers, set }) => {
     const authResult = await requireAuth(headers);
     if (authResult.error || !authResult.user) {
       set.status = authResult.status || 401;
@@ -48,7 +48,7 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
     },
   })
 
-  .get('/', async ({ headers, set }) => {
+  .get('', async ({ headers, set }) => {
     const authResult = await requireAuth(headers);
     if (authResult.error || !authResult.user) {
       set.status = authResult.status || 401;

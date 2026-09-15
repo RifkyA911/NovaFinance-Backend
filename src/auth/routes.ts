@@ -2,18 +2,31 @@ import { Elysia, t } from 'elysia';
 import { auth } from './index';
 
 export const authRoutes = new Elysia({ prefix: '/api/auth' })
-  // BetterAuth native endpoints
+  // BetterAuth native endpoints (hidden from Swagger to prevent duplicate endpoints)
   .post('/sign-in/email', async ({ request }) => {
     return auth.handler(request);
+  }, {
+    detail: { hide: true },
   })
   .post('/sign-up/email', async ({ request }) => {
     return auth.handler(request);
+  }, {
+    detail: { hide: true },
   })
   .post('/sign-out', async ({ request }) => {
     return auth.handler(request);
+  }, {
+    detail: {
+      tags: ['Auth'],
+      summary: 'Sign out',
+      description: 'End current user session. Invalidates session token and clears session cookie.\n\n**Response:**\n```json\n{\n  "success": true\n}\n```',
+      security: [{ BearerAuth: [] }],
+    },
   })
   .get('/get-session', async ({ request }) => {
     return auth.handler(request);
+  }, {
+    detail: { hide: true },
   })
   // Convenience aliases
   .post('/sign-in', async ({ request, body }) => {
@@ -71,7 +84,9 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
       security: [{ BearerAuth: [] }],
     },
   })
-  // Wildcard fallback
+  // Wildcard fallback (catch-all for other BetterAuth endpoints, hidden from Swagger)
   .all('/*', async ({ request }) => {
     return auth.handler(request);
+  }, {
+    detail: { hide: true },
   });

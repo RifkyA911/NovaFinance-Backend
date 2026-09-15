@@ -1,12 +1,12 @@
 import { Elysia, t } from 'elysia';
 import { db } from '../auth/config';
 import * as schema from '../db/schema';
-import { eq, and, isNull, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
 
 export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
-  .post('/', async ({ body, headers, set }) => {
+  .post('', async ({ body, headers, set }) => {
     const authResult = await requireAuth(headers);
     if (authResult.error || !authResult.user) {
       set.status = authResult.status || 401;
@@ -59,7 +59,7 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     },
   })
 
-  .get('/', async ({ headers, query, set }) => {
+  .get('', async ({ headers, query, set }) => {
     const authResult = await requireAuth(headers);
     if (authResult.error || !authResult.user) {
       set.status = authResult.status || 401;
@@ -78,8 +78,19 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     }
     
     try {
-      const limit = query.limit ? parseInt(query.limit) : 50;
-      
+      const limit = query.limit ? Math.min(parseInt(query.limit), 1000) : 50;
+      const offset = query.offset ? parseInt(query.offset) : 0;
+      const sortBy = query.sortBy || 'date';
+      const order = query.order === 'asc' ? 'asc' : 'desc';
+
+      const sortColumn = sortBy === 'createdAt'
+        ? schema.transactions.createdAt
+        : sortBy === 'amount'
+        ? schema.transactions.amount
+        : schema.transactions.date;
+
+      const orderClause = order === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
       const transactions = await db.select({
         id: schema.transactions.id,
         workspaceId: schema.transactions.workspaceId,
@@ -114,10 +125,11 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
         eq(schema.transactions.workspaceId, query.workspaceId),
         isNull(schema.transactions.deletedAt)
       ))
-      .orderBy(desc(schema.transactions.date))
-      .limit(limit);
+      .orderBy(orderClause, desc(schema.transactions.createdAt))
+      .limit(limit)
+      .offset(offset);
       
-      return { success: true, data: { transactions } };
+      return { success: true, data: { transactions, total: transactions.length } };
     } catch (error: any) {
       set.status = 500;
       return { success: false, error: error.message, code: 'INTERNAL_ERROR' };
@@ -126,11 +138,14 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     query: t.Optional(t.Object({
       workspaceId: t.String(),
       limit: t.Optional(t.String()),
+      offset: t.Optional(t.String()),
+      sortBy: t.Optional(t.String()),
+      order: t.Optional(t.String()),
     })),
     detail: {
       tags: ['Transactions'],
       summary: 'List transactions',
-      description: 'Get all transactions in workspace with category and account details. Requires workspace access (owner, admin, staff, member). Results are ordered by date (newest first).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n- `limit` (optional): Maximum number of transactions to return (default: 50)\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transactions": [\n      {\n        "id": "transaction-uuid-1",\n        "workspaceId": "workspace-uuid",\n        "accountId": "account-uuid-1",\n        "categoryId": "category-uuid-1",\n        "amount": "75000",\n        "type": "expense",\n        "description": "Lunch at Restaurant",\n        "date": "2026-09-14T12:00:00.000Z",\n        "notes": "Business lunch with client",\n        "metadata": {\n          "location": "Jakarta"\n        },\n        "isStaging": false,\n        "createdAt": "2026-09-14T12:00:00.000Z",\n        "updatedAt": "2026-09-14T12:00:00.000Z",\n        "category": {\n          "id": "category-uuid-1",\n          "name": "Food & Dining",\n          "type": "expense",\n          "color": "#EF4444",\n          "icon": "🍔"\n        },\n        "account": {\n          "id": "account-uuid-1",\n          "name": "BCA Main",\n          "type": "bank"\n        }\n      },\n      {\n        "id": "transaction-uuid-2",\n        "workspaceId": "workspace-uuid",\n        "accountId": "account-uuid-2",\n        "categoryId": "category-uuid-2",\n        "amount": "15000000",\n        "type": "income",\n        "description": "Monthly Salary",\n        "date": "2026-09-01T00:00:00.000Z",\n        "notes": "September salary",\n        "category": {\n          "id": "category-uuid-2",\n          "name": "Salary",\n          "type": "income",\n          "color": "#10B981",\n          "icon": "💰"\n        },\n        "account": {\n          "id": "account-uuid-2",\n          "name": "BCA Main",\n          "type": "bank"\n        }\n      }\n    ]\n  }\n}\n```',
+      description: 'Get all transactions in workspace with category and account details. Supports limit, offset, sortBy (date, createdAt, amount), and order (asc, desc).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n- `limit` (optional): Maximum number of transactions to return (default: 50, max: 1000)\n- `offset` (optional): Offset for pagination\n- `sortBy` (optional): Sort by "date", "createdAt", or "amount" (default: "date")\n- `order` (optional): "asc" or "desc" (default: "desc")',
       security: [{ BearerAuth: [] }],
     },
   })

@@ -37,7 +37,7 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       // Get current month's income and expenses
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       
       const transactions = await db.select({ 
         amount: schema.transactions.amount,
@@ -114,7 +114,7 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       
       for (let i = months - 1; i >= 0; i--) {
         const startDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const endDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+        const endDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
         
         const transactions = await db.select({ 
           amount: schema.transactions.amount,
@@ -179,7 +179,7 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       const type = query.type || 'expense';
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       
       const transactions = await db.select({
         categoryId: schema.transactions.categoryId,

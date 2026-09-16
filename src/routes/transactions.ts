@@ -20,18 +20,34 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     }
     
     try {
-      const [transaction] = await db.insert(schema.transactions).values({
-        workspaceId: body.workspaceId,
-        accountId: body.accountId,
-        categoryId: body.categoryId,
-        amount: body.amount,
-        type: body.type,
-        description: body.description,
-        date: body.date ? new Date(body.date) : new Date(),
-        notes: body.notes,
-        metadata: body.metadata,
-        isStaging: body.isStaging || false,
-      }).returning();
+      const transaction = await db.transaction(async (tx) => {
+        // Insert transaction
+        const [newTx] = await tx.insert(schema.transactions).values({
+          workspaceId: body.workspaceId,
+          accountId: body.accountId,
+          categoryId: body.categoryId,
+          amount: body.amount,
+          type: body.type,
+          description: body.description,
+          date: body.date ? new Date(body.date) : new Date(),
+          notes: body.notes,
+          metadata: body.metadata,
+          isStaging: body.isStaging || false,
+        }).returning();
+
+        // Update account balance
+        const [account] = await tx.select().from(schema.accounts).where(eq(schema.accounts.id, body.accountId));
+        if (account) {
+          const currentBalance = parseFloat(account.balance);
+          const txAmount = parseFloat(body.amount);
+          const newBalance = body.type === 'income' ? currentBalance + txAmount : currentBalance - txAmount;
+          await tx.update(schema.accounts)
+            .set({ balance: String(newBalance), updatedAt: new Date() })
+            .where(eq(schema.accounts.id, body.accountId));
+        }
+        
+        return newTx;
+      });
       
       return { success: true, data: { transaction } };
     } catch (error: any) {
@@ -54,7 +70,7 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     detail: {
       tags: ['Transactions'],
       summary: 'Create transaction',
-      description: 'Create a new transaction in workspace. Requires owner, admin, or staff role.\n\n**Request Body:**\n```json\n{\n  "workspaceId": "workspace-uuid",\n  "accountId": "account-uuid",\n  "categoryId": "category-uuid",\n  "amount": "75000",\n  "type": "expense",\n  "description": "Lunch at Restaurant",\n  "date": "2026-09-14T12:00:00.000Z",\n  "notes": "Business lunch with client",\n  "metadata": {\n    "location": "Jakarta",\n    "tags": ["business", "client"]\n  },\n  "isStaging": false\n}\n```\n\n**Transaction Types:**\n- `income`: Money received (salary, freelance, investment)\n- `expense`: Money spent (food, transportation, utilities)\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transaction": {\n      "id": "transaction-uuid",\n      "workspaceId": "workspace-uuid",\n      "accountId": "account-uuid",\n      "categoryId": "category-uuid",\n      "amount": "75000",\n      "type": "expense",\n      "description": "Lunch at Restaurant",\n      "date": "2026-09-14T12:00:00.000Z",\n      "notes": "Business lunch with client",\n      "metadata": {\n        "location": "Jakarta",\n        "tags": ["business", "client"]\n      },\n      "isStaging": false,\n      "createdAt": "2026-09-14T12:00:00.000Z",\n      "updatedAt": "2026-09-14T12:00:00.000Z"\n    }\n  }\n}\n```',
+      description: 'Create a new transaction in workspace. Requires owner, admin, or staff role.',
       security: [{ BearerAuth: [] }],
     },
   })
@@ -145,7 +161,7 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     detail: {
       tags: ['Transactions'],
       summary: 'List transactions',
-      description: 'Get all transactions in workspace with category and account details. Supports limit, offset, sortBy (date, createdAt, amount), and order (asc, desc).\n\n**Query Parameters:**\n- `workspaceId` (required): Workspace UUID\n- `limit` (optional): Maximum number of transactions to return (default: 50, max: 1000)\n- `offset` (optional): Offset for pagination\n- `sortBy` (optional): Sort by "date", "createdAt", or "amount" (default: "date")\n- `order` (optional): "asc" or "desc" (default: "desc")',
+      description: 'Get all transactions in workspace with category and account details.',
       security: [{ BearerAuth: [] }],
     },
   })
@@ -175,7 +191,7 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     detail: {
       tags: ['Transactions'],
       summary: 'Get transaction by ID',
-      description: 'Get transaction details by ID. Requires workspace access (owner, admin, staff, member).\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transaction": {\n      "id": "transaction-uuid",\n      "workspaceId": "workspace-uuid",\n      "accountId": "account-uuid",\n      "categoryId": "category-uuid",\n      "amount": "75000",\n      "type": "expense",\n      "description": "Lunch at Restaurant",\n      "date": "2026-09-14T12:00:00.000Z",\n      "notes": "Business lunch with client",\n      "metadata": {\n        "location": "Jakarta",\n        "tags": ["business", "client"]\n      },\n      "isStaging": false,\n      "createdAt": "2026-09-14T12:00:00.000Z",\n      "updatedAt": "2026-09-14T12:00:00.000Z"\n    }\n  }\n}\n```',
+      description: 'Get transaction details by ID.',
       security: [{ BearerAuth: [] }],
     },
   })
@@ -201,21 +217,44 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     }
     
     try {
-      const [updatedTransaction] = await db.update(schema.transactions)
-        .set({
-          accountId: body.accountId,
-          categoryId: body.categoryId,
-          amount: body.amount,
-          type: body.type,
-          description: body.description,
-          date: body.date ? new Date(body.date) : undefined,
-          notes: body.notes,
-          metadata: body.metadata,
-          isStaging: body.isStaging,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.transactions.id, params.id))
-        .returning();
+      const updatedTransaction = await db.transaction(async (tx) => {
+        // Revert old transaction amount from account
+        const [oldAccount] = await tx.select().from(schema.accounts).where(eq(schema.accounts.id, transaction.accountId));
+        if (oldAccount) {
+          const oldBalance = parseFloat(oldAccount.balance);
+          const oldTxAmount = parseFloat(transaction.amount);
+          const revertedBalance = transaction.type === 'income' ? oldBalance - oldTxAmount : oldBalance + oldTxAmount;
+          await tx.update(schema.accounts).set({ balance: String(revertedBalance) }).where(eq(schema.accounts.id, transaction.accountId));
+        }
+
+        // Apply new updates
+        const [updatedTx] = await tx.update(schema.transactions)
+          .set({
+            accountId: body.accountId,
+            categoryId: body.categoryId,
+            amount: body.amount,
+            type: body.type,
+            description: body.description,
+            date: body.date ? new Date(body.date) : undefined,
+            notes: body.notes,
+            metadata: body.metadata,
+            isStaging: body.isStaging,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.transactions.id, params.id))
+          .returning();
+
+        // Apply new transaction amount to new/same account
+        const [newAccount] = await tx.select().from(schema.accounts).where(eq(schema.accounts.id, updatedTx.accountId));
+        if (newAccount) {
+          const currentBalance = parseFloat(newAccount.balance);
+          const newTxAmount = parseFloat(updatedTx.amount);
+          const newBalance = updatedTx.type === 'income' ? currentBalance + newTxAmount : currentBalance - newTxAmount;
+          await tx.update(schema.accounts).set({ balance: String(newBalance) }).where(eq(schema.accounts.id, updatedTx.accountId));
+        }
+
+        return updatedTx;
+      });
       
       return { success: true, data: { transaction: updatedTransaction } };
     } catch (error: any) {
@@ -237,7 +276,7 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     detail: {
       tags: ['Transactions'],
       summary: 'Update transaction',
-      description: 'Update transaction details. Requires owner, admin, or staff role.\n\n**Request Body:**\n```json\n{\n  "accountId": "account-uuid",\n  "categoryId": "category-uuid",\n  "amount": "100000",\n  "type": "expense",\n  "description": "Lunch at Restaurant Updated",\n  "date": "2026-09-14T12:00:00.000Z",\n  "notes": "Updated notes",\n  "metadata": {\n    "location": "Jakarta",\n    "tags": ["business", "client", "updated"]\n  },\n  "isStaging": false\n}\n```\n\n**Response:**\n```json\n{\n  "success": true,\n  "data": {\n    "transaction": {\n      "id": "transaction-uuid",\n      "amount": "100000",\n      "description": "Lunch at Restaurant Updated",\n      "notes": "Updated notes",\n      "updatedAt": "2026-09-14T15:30:00.000Z"\n    }\n  }\n}\n```',
+      description: 'Update transaction details.',
       security: [{ BearerAuth: [] }],
     },
   })
@@ -263,14 +302,26 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     }
     
     try {
-      await db.update(schema.transactions)
-        .set({
-          deletedAt: new Date(),
-          deletedBy: authResult.user.id,
-          deletedReason: 'User deletion',
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.transactions.id, params.id));
+      await db.transaction(async (tx) => {
+        // Soft delete transaction
+        await tx.update(schema.transactions)
+          .set({
+            deletedAt: new Date(),
+            deletedBy: authResult.user.id,
+            deletedReason: 'User deletion',
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.transactions.id, params.id));
+        
+        // Revert balance
+        const [account] = await tx.select().from(schema.accounts).where(eq(schema.accounts.id, transaction.accountId));
+        if (account) {
+          const currentBalance = parseFloat(account.balance);
+          const txAmount = parseFloat(transaction.amount);
+          const newBalance = transaction.type === 'income' ? currentBalance - txAmount : currentBalance + txAmount;
+          await tx.update(schema.accounts).set({ balance: String(newBalance) }).where(eq(schema.accounts.id, transaction.accountId));
+        }
+      });
       
       return { success: true };
     } catch (error: any) {

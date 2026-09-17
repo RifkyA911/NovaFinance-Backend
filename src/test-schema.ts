@@ -19,9 +19,9 @@ async function testSchema() {
 
     // Insert a test user
     const [user] = await db.insert(schema.users).values({
+      id: 'test-user-' + Date.now(),
       email: 'test@example.com',
       name: 'Test User',
-      passwordHash: 'hashed_password_here',
     }).returning();
     console.log('✅ Created user:', user.id);
 

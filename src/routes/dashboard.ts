@@ -32,7 +32,7 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
           isNull(schema.accounts.deletedAt)
         ));
       
-      const totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0);
+      let totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0);
       
       // Get current month's income and expenses
       const now = new Date();
@@ -50,13 +50,39 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
           isNull(schema.transactions.deletedAt)
         ));
       
-      const monthlyIncome = transactions
+      let monthlyIncome = transactions
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + parseFloat(t.amount), 0);
       
-      const monthlyExpense = transactions
+      let monthlyExpense = transactions
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+      // Fallback: if no transactions this month or total balance is 0, check all transactions
+      const allTransactions = await db.select({ 
+        amount: schema.transactions.amount,
+        type: schema.transactions.type 
+      }).from(schema.transactions)
+        .where(and(
+          eq(schema.transactions.workspaceId, query.workspaceId),
+          isNull(schema.transactions.deletedAt)
+        ));
+
+      if (totalBalance === 0 && allTransactions.length > 0) {
+        totalBalance = allTransactions.reduce((sum, t) => {
+          const amt = parseFloat(t.amount);
+          return t.type === 'income' ? sum + amt : sum - amt;
+        }, 0);
+      }
+
+      if (monthlyIncome === 0 && monthlyExpense === 0 && allTransactions.length > 0) {
+        monthlyIncome = allTransactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        monthlyExpense = allTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      }
       
       const savingsRate = monthlyIncome > 0 
         ? ((monthlyIncome - monthlyExpense) / monthlyIncome * 100).toFixed(1)
@@ -70,7 +96,7 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
           monthlyExpense,
           savingsRate: parseFloat(savingsRate),
           accountCount: accounts.length,
-          transactionCount: transactions.length
+          transactionCount: allTransactions.length
         }
       };
     } catch (error: any) {
@@ -181,7 +207,7 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       
-      const transactions = await db.select({
+      let transactions = await db.select({
         categoryId: schema.transactions.categoryId,
         amount: schema.transactions.amount
       }).from(schema.transactions)
@@ -192,6 +218,18 @@ export const dashboardRoutes = new Elysia({ prefix: '/api/dashboard' })
           lte(schema.transactions.date, endOfMonth),
           isNull(schema.transactions.deletedAt)
         ));
+
+      if (transactions.length === 0) {
+        transactions = await db.select({
+          categoryId: schema.transactions.categoryId,
+          amount: schema.transactions.amount
+        }).from(schema.transactions)
+          .where(and(
+            eq(schema.transactions.workspaceId, query.workspaceId),
+            eq(schema.transactions.type, type),
+            isNull(schema.transactions.deletedAt)
+          ));
+      }
       
       // Group by category
       const categoryTotals: Record<string, number> = {};

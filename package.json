@@ -35,11 +35,12 @@
     "redis": "^4.7.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@typescript-eslint/eslint-plugin": "^8",
+    "@typescript-eslint/parser": "^8",
     "bun-types": "latest",
     "drizzle-kit": "^0.24.2",
-    "eslint": "^9",
-    "@typescript-eslint/eslint-plugin": "^8",
-    "@typescript-eslint/parser": "^8"
+    "eslint": "^9"
   },
   "module": "src/index.js"
 }

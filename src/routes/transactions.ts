@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { db } from '../auth/config';
 import * as schema from '../db/schema';
-import { eq, and, isNull, desc, asc } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
 
@@ -21,7 +21,28 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
     
     try {
       const transaction = await db.transaction(async (tx) => {
-        // Insert transaction
+        // 1. Strict Cross-Tenant IDOR Check: Ensure account belongs to this workspace
+        const [account] = await tx
+          .select()
+          .from(schema.accounts)
+          .where(and(eq(schema.accounts.id, body.accountId), eq(schema.accounts.workspaceId, body.workspaceId)));
+
+        if (!account) {
+          throw new Error('Invalid account: Target account does not exist or does not belong to this workspace.');
+        }
+
+        // 2. Strict Cross-Tenant IDOR Check: If category provided, ensure it belongs to this workspace
+        if (body.categoryId) {
+          const [cat] = await tx
+            .select()
+            .from(schema.categories)
+            .where(and(eq(schema.categories.id, body.categoryId), eq(schema.categories.workspaceId, body.workspaceId)));
+          if (!cat) {
+            throw new Error('Invalid category: Category does not exist or does not belong to this workspace.');
+          }
+        }
+
+        // 3. Insert transaction
         const [newTx] = await tx.insert(schema.transactions).values({
           workspaceId: body.workspaceId,
           accountId: body.accountId,
@@ -35,16 +56,14 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
           isStaging: body.isStaging || false,
         }).returning();
 
-        // Update account balance
-        const [account] = await tx.select().from(schema.accounts).where(eq(schema.accounts.id, body.accountId));
-        if (account) {
-          const currentBalance = parseFloat(account.balance);
-          const txAmount = parseFloat(body.amount);
-          const newBalance = body.type === 'income' ? currentBalance + txAmount : currentBalance - txAmount;
-          await tx.update(schema.accounts)
-            .set({ balance: String(newBalance), updatedAt: new Date() })
-            .where(eq(schema.accounts.id, body.accountId));
-        }
+        // 4. Atomic balance update in database engine (prevents race conditions and JS float drift)
+        const delta = body.type === 'income' ? parseFloat(body.amount) : -parseFloat(body.amount);
+        await tx.update(schema.accounts)
+          .set({
+            balance: sql`${schema.accounts.balance} + ${delta}`,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(schema.accounts.id, body.accountId), eq(schema.accounts.workspaceId, body.workspaceId)));
         
         return newTx;
       });
@@ -313,14 +332,14 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
           })
           .where(eq(schema.transactions.id, params.id));
         
-        // Revert balance
-        const [account] = await tx.select().from(schema.accounts).where(eq(schema.accounts.id, transaction.accountId));
-        if (account) {
-          const currentBalance = parseFloat(account.balance);
-          const txAmount = parseFloat(transaction.amount);
-          const newBalance = transaction.type === 'income' ? currentBalance - txAmount : currentBalance + txAmount;
-          await tx.update(schema.accounts).set({ balance: String(newBalance) }).where(eq(schema.accounts.id, transaction.accountId));
-        }
+        // Revert balance atomically with strict workspace checking
+        const revertDelta = transaction.type === 'income' ? -parseFloat(transaction.amount) : parseFloat(transaction.amount);
+        await tx.update(schema.accounts)
+          .set({
+            balance: sql`${schema.accounts.balance} + ${revertDelta}`,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(schema.accounts.id, transaction.accountId), eq(schema.accounts.workspaceId, transaction.workspaceId)));
       });
       
       return { success: true };

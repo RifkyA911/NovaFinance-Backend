@@ -21,6 +21,10 @@ export type Permission =
   | 'invoices.read'
   | 'invoices.update'
   | 'invoices.delete'
+  | 'goals.create'
+  | 'goals.read'
+  | 'goals.update'
+  | 'goals.delete'
   | 'collaborators.invite'
   | 'collaborators.remove'
   | 'collaborators.update'
@@ -31,7 +35,8 @@ export type Permission =
   | 'reports.read'
   | 'reports.export'
   | 'settings.read'
-  | 'settings.update';
+  | 'settings.update'
+  | 'logs.read';
 
 const rolePermissions: Record<Role, Permission[]> = {
   owner: [
@@ -55,6 +60,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'invoices.read',
     'invoices.update',
     'invoices.delete',
+    'goals.create',
+    'goals.read',
+    'goals.update',
+    'goals.delete',
     'collaborators.invite',
     'collaborators.remove',
     'collaborators.update',
@@ -66,6 +75,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'reports.export',
     'settings.read',
     'settings.update',
+    'logs.read',
   ],
   admin: [
     'workspaces.read',
@@ -86,6 +96,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'invoices.read',
     'invoices.update',
     'invoices.delete',
+    'goals.create',
+    'goals.read',
+    'goals.update',
+    'goals.delete',
     'collaborators.invite',
     'collaborators.remove',
     'menus.create',
@@ -96,6 +110,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'reports.export',
     'settings.read',
     'settings.update',
+    'logs.read',
   ],
   staff: [
     'workspaces.read',
@@ -106,6 +121,9 @@ const rolePermissions: Record<Role, Permission[]> = {
     'accounts.read',
     'invoices.read',
     'invoices.update',
+    'goals.create',
+    'goals.read',
+    'goals.update',
     'menus.read',
     'reports.read',
     'settings.read',
@@ -116,6 +134,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'categories.read',
     'accounts.read',
     'invoices.read',
+    'goals.read',
     'menus.read',
     'reports.read',
     'settings.read',

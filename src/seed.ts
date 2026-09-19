@@ -11,6 +11,8 @@ async function seed() {
   try {
     // Clean existing data
     console.log('🧹 Cleaning existing data...');
+    await db.delete(schema.goals);
+    await db.delete(schema.liabilities);
     await db.delete(schema.invoices);
     await db.delete(schema.transactions);
     await db.delete(schema.categories);
@@ -24,10 +26,10 @@ async function seed() {
 
     // Create users with better-auth API using internal adapter
     const users = [
-      { email: 'test@example.com', password: 'password123', name: 'Test User' },
-      { email: 'admin@example.com', password: 'admin123', name: 'Admin User' },
-      { email: 'user@example.com', password: 'password123', name: 'Regular User' },
-      { email: 'staff@example.com', password: 'staff123', name: 'Staff User' },
+      { email: 'admin@example.com', password: 'admin123', name: 'Alexander Vance' },
+      { email: 'test@example.com', password: 'password123', name: 'Sofia Lestari' },
+      { email: 'user@example.com', password: 'password123', name: 'Budi Pratama' },
+      { email: 'staff@example.com', password: 'staff123', name: 'Siti Rahma' },
     ];
 
     const userIds: Record<string, string> = {};
@@ -287,6 +289,173 @@ async function seed() {
     }
 
     console.log('✅ Invoices created');
+
+    // Create Sample Goals
+    const sampleGoals = [
+      {
+        workspaceId: personalWsId,
+        title: 'Dana Darurat 6 Bulan (Emergency Vault)',
+        category: 'emergency',
+        targetAmount: '35000000',
+        currentAmount: '24500000',
+        priority: 'urgent',
+        status: 'in_progress',
+        monthlyContributionPlanned: '3500000',
+        targetDate: new Date('2026-12-31'),
+        order: 1,
+        notes: 'Alokasi aman untuk kebutuhan operasional 6 bulan di instrumen likuid (Pasar Uang & Tabungan).',
+      },
+      {
+        workspaceId: personalWsId,
+        title: 'DP Rumah Tapak Modern Minimalis (BSD Cluster)',
+        category: 'property',
+        targetAmount: '120000000',
+        currentAmount: '42000000',
+        priority: 'high',
+        status: 'in_progress',
+        monthlyContributionPlanned: '6500000',
+        targetDate: new Date('2027-12-31'),
+        order: 2,
+        notes: 'Target DP 20% + biaya notaris & BPHTB.',
+      },
+      {
+        workspaceId: personalWsId,
+        title: 'MacBook Pro M3 Max Workstation',
+        category: 'gadget',
+        targetAmount: '34000000',
+        currentAmount: '28000000',
+        priority: 'high',
+        status: 'in_progress',
+        monthlyContributionPlanned: '2000000',
+        targetDate: new Date('2026-11-30'),
+        order: 3,
+        notes: 'Hardware refresh untuk workstation AI & dev.',
+      },
+      {
+        workspaceId: personalWsId,
+        title: 'Portofolio Index Fund & Dividen Saham',
+        category: 'investment',
+        targetAmount: '60000000',
+        currentAmount: '38500000',
+        priority: 'medium',
+        status: 'in_progress',
+        monthlyContributionPlanned: '3000000',
+        targetDate: new Date('2027-06-30'),
+        order: 4,
+        notes: 'Akumulasi IHSG & S&P 500 ETF secara konsisten dollar cost averaging.',
+      },
+      {
+        workspaceId: personalWsId,
+        title: 'Liburan Musim Dingin Sapporo Hokkaido',
+        category: 'travel',
+        targetAmount: '28000000',
+        currentAmount: '9500000',
+        priority: 'medium',
+        status: 'in_progress',
+        monthlyContributionPlanned: '2500000',
+        targetDate: new Date('2027-01-20'),
+        order: 5,
+        notes: 'Tiket ANA/JAL, Airbnb Sapporo, dan pass JR Hokkaido ski resort.',
+      },
+      {
+        workspaceId: personalWsId,
+        title: 'Dana Pensiun Dini (FIRE Phase 1)',
+        category: 'retirement',
+        targetAmount: '500000000',
+        currentAmount: '92000000',
+        priority: 'low',
+        status: 'in_progress',
+        monthlyContributionPlanned: '5000000',
+        targetDate: new Date('2032-12-31'),
+        order: 6,
+        notes: 'Target dana kebebasan finansial jangka panjang.',
+      },
+      {
+        workspaceId: personalWsId,
+        title: 'Kamera Sony Alpha 7 IV + Lensa GM',
+        category: 'gadget',
+        targetAmount: '45000000',
+        currentAmount: '6000000',
+        priority: 'low',
+        status: 'wishlist',
+        monthlyContributionPlanned: '1500000',
+        targetDate: new Date('2027-08-31'),
+        order: 7,
+        notes: 'Wishlist fotografi dan video dokumentasi profesional.',
+      },
+      {
+        workspaceId: personalWsId,
+        title: 'Sertifikasi Cloud Architect & Security',
+        category: 'education',
+        targetAmount: '8000000',
+        currentAmount: '8000000',
+        priority: 'high',
+        status: 'completed',
+        monthlyContributionPlanned: '0',
+        targetDate: new Date('2026-08-15'),
+        order: 8,
+        notes: 'Target sertifikasi selesai dan lulus tepat waktu.',
+      },
+    ];
+
+    for (const g of sampleGoals) {
+      await db.insert(schema.goals).values(g as any);
+    }
+    console.log('✅ Goals created (8 items)');
+
+    // Create Sample Liabilities
+    const sampleLiabilities = [
+      {
+        workspaceId: personalWsId,
+        name: 'KPR BTN Syariah - Cluster Grand BSD',
+        type: 'mortgage',
+        principalAmount: '650000000',
+        remainingAmount: '520000000',
+        interestRate: '6.75',
+        monthlyPayment: '5250000',
+        tenorMonths: 180,
+        remainingTenorMonths: 142,
+        dueDate: 10,
+        status: 'active',
+        lenderName: 'Bank BTN Syariah',
+        notes: 'Fasilitas pembiayaan hunian tetap berskema murabahah.',
+      },
+      {
+        workspaceId: personalWsId,
+        name: 'Kredit Usaha Modal Kerja Mandiri',
+        type: 'business_loan',
+        principalAmount: '100000000',
+        remainingAmount: '38000000',
+        interestRate: '8.50',
+        monthlyPayment: '4600000',
+        tenorMonths: 24,
+        remainingTenorMonths: 9,
+        dueDate: 25,
+        status: 'active',
+        lenderName: 'Bank Mandiri',
+        notes: 'Ekspansi modal operasional dan inventory software.',
+      },
+      {
+        workspaceId: personalWsId,
+        name: 'BCA Everyday Card & Cicilan 0%',
+        type: 'credit_card',
+        principalAmount: '25000000',
+        remainingAmount: '7200000',
+        interestRate: '1.75',
+        monthlyPayment: '1850000',
+        tenorMonths: 12,
+        remainingTenorMonths: 4,
+        dueDate: 15,
+        status: 'active',
+        lenderName: 'Bank BCA',
+        notes: 'Cicilan 0% peralatan server kantor.',
+      },
+    ];
+
+    for (const l of sampleLiabilities) {
+      await db.insert(schema.liabilities).values(l as any);
+    }
+    console.log('✅ Liabilities created (3 active loans)');
 
     console.log('🎉 Seed completed successfully!');
     console.log('📊 Summary:');

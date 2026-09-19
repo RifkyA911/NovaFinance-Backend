@@ -131,6 +131,16 @@ All API endpoints (except sign-in and sign-up) require authentication via Bearer
 - `PATCH /api/invoices/:id` - Update invoice
 - `DELETE /api/invoices/:id` - Delete invoice
 
+#### Goals
+- `POST /api/goals` - Create financial goal or wishlist item
+- `GET /api/goals` - List goals with filters (workspaceId, status, priority, category)
+- `GET /api/goals/analytics` - Get aggregated completion rates, category diversification, and monthly savings velocity
+- `GET /api/goals/:id` - Get single goal details
+- `PATCH /api/goals/:id` - Update goal
+- `POST /api/goals/:id/deposit` - Deposit funds to goal (atomic balance addition)
+- `PUT /api/goals/reorder` - Batch reorder goals for Drag & Drop priority boards
+- `DELETE /api/goals/:id` - Soft delete goal
+
 #### Dashboard
 - `GET /api/dashboard/summary` - Get financial summary
 - `GET /api/dashboard/trends` - Get income/expense trends
@@ -171,6 +181,12 @@ Transaction records with metadata
 
 #### invoices
 Invoice management
+
+#### goals
+Financial targets & wishlist items with priority, order, target date, planned savings velocity, and status
+
+#### liabilities
+Capital loans, KPR, business loans, credit cards, amortization schedules, APR, and payoff terms
 
 #### documents
 Document storage with Gemini AI analysis metadata

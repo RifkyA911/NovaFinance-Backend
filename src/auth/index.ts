@@ -19,6 +19,16 @@ export const auth = betterAuth({
       verify: async ({ hash, password }) => await bcrypt.compare(password, hash),
     },
   },
+  socialProviders: {
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? {
+          google: {
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          },
+        }
+      : {}),
+  },
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:8080",
   secret: process.env.BETTER_AUTH_SECRET || "your-secret-key-min-32-chars-long",
   trustedOrigins: ["http://localhost:3000", "http://127.0.0.1:3000"],

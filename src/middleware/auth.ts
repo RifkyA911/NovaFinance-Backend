@@ -49,11 +49,21 @@ export async function getWorkspaceRole(userId: string, workspaceId: string) {
   return { error: 'Access denied' };
 }
 
-export async function requireWorkspaceAccess(userId: string, workspaceId: string, permission?: any) {
+import { hasPermission, type Role, type Permission } from '../lib/permissions';
+
+export async function requireWorkspaceAccess(userId: string, workspaceId: string, permission?: Permission) {
   const result = await getWorkspaceRole(userId, workspaceId);
   
-  if (result.error) {
-    return { error: result.error, status: 403 };
+  if (result.error || !result.role) {
+    return { error: result.error || 'Access denied', status: 403 };
+  }
+
+  // Strictly enforce RBAC permission when requested
+  if (permission && !hasPermission(result.role as Role, permission)) {
+    return {
+      error: `Permission denied: '${permission}' privilege is required for role '${result.role}'.`,
+      status: 403,
+    };
   }
   
   return { role: result.role, workspace: result.workspace };

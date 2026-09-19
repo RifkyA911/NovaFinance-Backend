@@ -187,3 +187,57 @@ export const documents = pgTable('documents', {
   transactionIdIdx: index('documents_transaction_id_idx').on(table.transactionId),
   uploadedByIdx: index('documents_uploaded_by_idx').on(table.uploadedBy),
 }));
+
+// Financial Goals & Wishlist table
+export const goals = pgTable('goals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull(), // 'emergency', 'gadget', 'travel', 'property', 'investment', 'retirement', 'education', 'other'
+  targetAmount: decimal('target_amount', { precision: 15, scale: 2 }).notNull(),
+  currentAmount: decimal('current_amount', { precision: 15, scale: 2 }).default('0').notNull(),
+  targetDate: timestamp('target_date'),
+  priority: varchar('priority', { length: 20 }).default('medium').notNull(), // 'urgent', 'high', 'medium', 'low'
+  order: integer('order').default(0).notNull(),
+  status: varchar('status', { length: 20 }).default('in_progress').notNull(), // 'in_progress', 'completed', 'wishlist', 'paused'
+  monthlyContributionPlanned: decimal('monthly_contribution_planned', { precision: 15, scale: 2 }).default('0'),
+  notes: text('notes'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+  deletedBy: text('deleted_by').references(() => users.id),
+  deletedReason: text('deleted_reason'),
+}, (table) => ({
+  workspaceIdIdx: index('goals_workspace_id_idx').on(table.workspaceId),
+  statusIdx: index('goals_status_idx').on(table.status),
+  priorityIdx: index('goals_priority_idx').on(table.priority),
+  orderIdx: index('goals_order_idx').on(table.order),
+}));
+
+// Capital Liabilities & Debt Obligations table
+export const liabilities = pgTable('liabilities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 50 }).notNull(), // 'mortgage', 'business_loan', 'credit_card', 'auto_loan', 'paylater', 'other'
+  principalAmount: decimal('principal_amount', { precision: 15, scale: 2 }).notNull(),
+  remainingAmount: decimal('remaining_amount', { precision: 15, scale: 2 }).notNull(),
+  interestRate: decimal('interest_rate', { precision: 5, scale: 2 }).notNull(), // annual percentage rate (APR)
+  monthlyPayment: decimal('monthly_payment', { precision: 15, scale: 2 }).notNull(),
+  tenorMonths: integer('tenor_months').notNull(),
+  remainingTenorMonths: integer('remaining_tenor_months').notNull(),
+  startDate: timestamp('start_date'),
+  dueDate: integer('due_date').default(1), // day of month (1-31)
+  status: varchar('status', { length: 20 }).default('active').notNull(), // 'active', 'paid_off', 'restructured'
+  lenderName: varchar('lender_name', { length: 150 }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+  deletedBy: text('deleted_by').references(() => users.id),
+}, (table) => ({
+  workspaceIdIdx: index('liabilities_workspace_id_idx').on(table.workspaceId),
+  statusIdx: index('liabilities_status_idx').on(table.status),
+}));
+

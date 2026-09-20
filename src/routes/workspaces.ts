@@ -4,6 +4,18 @@ import * as schema from '../db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+
+const s3Client = new S3Client({
+  endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER || 'minio',
+    secretAccessKey: process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || 'minio123',
+  },
+  forcePathStyle: true,
+});
+const BUCKET_NAME = process.env.MINIO_BUCKET || 'novajournal-documents';
 
 export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
   .post('', async ({ body, headers, set }) => {
@@ -19,6 +31,13 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
         name: body.name,
         type: body.type,
         currency: body.currency || 'IDR',
+        customBrandLogo: body.customBrandLogo,
+        customBrandName: body.customBrandName,
+        customBrandDescription: body.customBrandDescription,
+        customBrandJargon: body.customBrandJargon,
+        customBrandMode: body.customBrandMode || 'square',
+        customBrandDisplay: body.customBrandDisplay || 'logo-and-text',
+        planTier: body.planTier || 'pro',
       }).returning();
       
       // Add owner as collaborator
@@ -39,6 +58,13 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
       name: t.String(),
       type: t.Union([t.Literal('personal'), t.Literal('umkm'), t.Literal('pt')]),
       currency: t.Optional(t.String()),
+      customBrandLogo: t.Optional(t.String()),
+      customBrandName: t.Optional(t.String()),
+      customBrandDescription: t.Optional(t.String()),
+      customBrandJargon: t.Optional(t.String()),
+      customBrandMode: t.Optional(t.Union([t.Literal('square'), t.Literal('wide')])),
+      customBrandDisplay: t.Optional(t.Union([t.Literal('logo-and-text'), t.Literal('logo-only'), t.Literal('full-banner')])),
+      planTier: t.Optional(t.Union([t.Literal('basic'), t.Literal('pro'), t.Literal('enterprise')])),
     }),
     detail: {
       tags: ['Workspaces'],
@@ -135,13 +161,25 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
     }
     
     try {
+      const updateData: Record<string, any> = {
+        updatedAt: new Date(),
+      };
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.type !== undefined) updateData.type = body.type;
+      if (body.currency !== undefined) updateData.currency = body.currency;
+      if (body.customBrandLogo !== undefined) updateData.customBrandLogo = body.customBrandLogo;
+      if (body.customBrandName !== undefined) updateData.customBrandName = body.customBrandName;
+      if (body.customBrandDescription !== undefined) updateData.customBrandDescription = body.customBrandDescription;
+      if (body.customBrandJargon !== undefined) updateData.customBrandJargon = body.customBrandJargon;
+      if (body.customBrandMode !== undefined) updateData.customBrandMode = body.customBrandMode;
+      if (body.customBrandDisplay !== undefined) updateData.customBrandDisplay = body.customBrandDisplay;
+      if (body.entityType !== undefined) updateData.entityType = body.entityType;
+      if (body.taxId !== undefined) updateData.taxId = body.taxId;
+      if (body.websiteUrl !== undefined) updateData.websiteUrl = body.websiteUrl;
+      if (body.planTier !== undefined) updateData.planTier = body.planTier;
+
       const [workspace] = await db.update(schema.workspaces)
-        .set({
-          name: body.name,
-          type: body.type,
-          currency: body.currency,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(schema.workspaces.id, params.id))
         .returning();
       
@@ -152,9 +190,19 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
     }
   }, {
     body: t.Object({
-      name: t.Optional(t.String()),
-      type: t.Optional(t.Union([t.Literal('personal'), t.Literal('umkm'), t.Literal('pt')])),
-      currency: t.Optional(t.String()),
+      name: t.Optional(t.Nullable(t.String())),
+      type: t.Optional(t.Nullable(t.Union([t.Literal('personal'), t.Literal('umkm'), t.Literal('pt')]))),
+      currency: t.Optional(t.Nullable(t.String())),
+      customBrandLogo: t.Optional(t.Nullable(t.String())),
+      customBrandName: t.Optional(t.Nullable(t.String())),
+      customBrandDescription: t.Optional(t.Nullable(t.String())),
+      customBrandJargon: t.Optional(t.Nullable(t.String())),
+      customBrandMode: t.Optional(t.Nullable(t.Union([t.Literal('square'), t.Literal('wide')]))),
+      customBrandDisplay: t.Optional(t.Nullable(t.Union([t.Literal('logo-and-text'), t.Literal('logo-only'), t.Literal('full-banner')]))),
+      entityType: t.Optional(t.Nullable(t.String())),
+      taxId: t.Optional(t.Nullable(t.String())),
+      websiteUrl: t.Optional(t.Nullable(t.String())),
+      planTier: t.Optional(t.Nullable(t.Union([t.Literal('basic'), t.Literal('pro'), t.Literal('enterprise')]))),
     }),
     detail: {
       tags: ['Workspaces'],
@@ -505,6 +553,161 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
       summary: 'Get Master Roles & Permission definitions',
       description: 'Retrieve system and custom master roles with fine-grained capability mapping.',
       security: [{ BearerAuth: [] }],
+    },
+  })
+
+  // ── Brand Logo Upload to Structured MinIO Storage ──────────────────────
+  .post('/:id/brand-logo', async ({ params, body, headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
+    }
+
+    const access = await requireWorkspaceAccess(authResult.user.id, params.id, 'workspaces.update');
+    if (access.error) {
+      set.status = access.status || 403;
+      return { success: false, error: access.error, code: 'FORBIDDEN' };
+    }
+
+    try {
+      let fileBuffer: Buffer;
+      let contentType = 'image/webp';
+      let extension = 'webp';
+
+      if (body.dataUrl && typeof body.dataUrl === 'string') {
+        const matches = body.dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          contentType = matches[1];
+          fileBuffer = Buffer.from(matches[2], 'base64');
+          if (contentType.includes('svg')) extension = 'svg';
+          else if (contentType.includes('gif')) extension = 'gif';
+          else if (contentType.includes('png')) extension = 'png';
+          else if (contentType.includes('jpeg') || contentType.includes('jpg')) extension = 'jpg';
+          else extension = 'webp';
+        } else {
+          fileBuffer = Buffer.from(body.dataUrl, 'base64');
+        }
+      } else if (body.file && typeof body.file === 'object' && 'arrayBuffer' in body.file) {
+        const fileObj = body.file as File;
+        contentType = fileObj.type || 'image/webp';
+        if (contentType.includes('svg')) extension = 'svg';
+        else if (contentType.includes('gif') || fileObj.name?.endsWith('.gif')) extension = 'gif';
+        else if (contentType.includes('png')) extension = 'png';
+        else if (contentType.includes('jpeg') || contentType.includes('jpg')) extension = 'jpg';
+        else extension = 'webp';
+        const arr = await fileObj.arrayBuffer();
+        fileBuffer = Buffer.from(arr);
+      } else {
+        set.status = 400;
+        return { success: false, error: 'No brand image provided', code: 'VALIDATION_ERROR' };
+      }
+
+      const mode = body.mode === 'wide' ? 'wide' : 'square';
+      const filename = `${mode}_${Date.now()}.${extension}`;
+      // Structured MinIO Key: NovaFinance/workspaces/{workspaceId}/brand/{mode}_{timestamp}.{ext}
+      const s3Key = `NovaFinance/workspaces/${params.id}/brand/${filename}`;
+
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: s3Key,
+          Body: fileBuffer,
+          ContentType: contentType,
+          ContentLength: fileBuffer.length,
+        })
+      );
+
+      const brandLogoUrl = `http://localhost:8080/api/workspaces/brand-logo/${params.id}/${filename}`;
+
+      const [updatedWorkspace] = await db
+        .update(schema.workspaces)
+        .set({
+          customBrandLogo: brandLogoUrl,
+          customBrandMode: mode,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.workspaces.id, params.id))
+        .returning();
+
+      return {
+        success: true,
+        message: 'Brand logo uploaded to MinIO and saved successfully',
+        brandLogoUrl,
+        data: { workspace: updatedWorkspace },
+      };
+    } catch (error: any) {
+      set.status = 500;
+      return { success: false, error: error.message || 'Failed to upload brand logo', code: 'UPLOAD_ERROR' };
+    }
+  }, {
+    body: t.Object({
+      dataUrl: t.Optional(t.String()),
+      file: t.Optional(t.Any()),
+      mode: t.Optional(t.Union([t.Literal('square'), t.Literal('wide')])),
+    }),
+    detail: {
+      tags: ['Workspaces'],
+      summary: 'Upload corporate brand logo to MinIO S3',
+      description: 'Uploads square or wide brand logo into structured MinIO folder NovaFinance/workspaces/{workspaceId}/brand/ and updates workspace settings.',
+      security: [{ BearerAuth: [] }],
+    },
+  })
+
+  // ── Serve Brand Logo from MinIO S3 ─────────────────────────────────────
+  .get('/brand-logo/:workspaceId/:filename', async ({ params, set }) => {
+    try {
+      const primaryKey = `NovaFinance/workspaces/${params.workspaceId}/brand/${params.filename}`;
+      const fallbackKey = `workspaces/${params.workspaceId}/brand/${params.filename}`;
+
+      let response;
+      try {
+        response = await s3Client.send(new GetObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: primaryKey,
+        }));
+      } catch {
+        response = await s3Client.send(new GetObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: fallbackKey,
+        }));
+      }
+      const contentType = response.ContentType || 'image/webp';
+
+      const streamToBuffer = async (stream: any): Promise<Buffer> => {
+        return new Promise((resolve, reject) => {
+          const chunks: any[] = [];
+          stream.on('data', (chunk: any) => chunks.push(chunk));
+          stream.on('error', reject);
+          stream.on('end', () => resolve(Buffer.concat(chunks)));
+        });
+      };
+
+      if (response.Body) {
+        const buf = await streamToBuffer(response.Body);
+        return new Response(new Uint8Array(buf), {
+          headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        });
+      }
+
+      set.status = 404;
+      return { success: false, error: 'Brand logo not found' };
+    } catch {
+      set.status = 404;
+      return { success: false, error: 'Brand logo not found in storage' };
+    }
+  }, {
+    params: t.Object({
+      workspaceId: t.String(),
+      filename: t.String(),
+    }),
+    detail: {
+      tags: ['Workspaces'],
+      summary: 'Serve workspace corporate brand logo from MinIO S3',
+      description: 'Stream workspace brand logo from structured MinIO folder.',
     },
   });
 

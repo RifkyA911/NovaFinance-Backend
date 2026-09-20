@@ -87,7 +87,7 @@ export const logRoutes = new Elysia({ prefix: '/api/logs' })
             oldData: null,
             newData: { count: 18, totalVolume: 42500000, type: 'reconciliation' },
             ipAddress: '127.0.0.1',
-            userAgent: 'NovaJournal Engine v1.2',
+            userAgent: 'NovaFinance Engine v1.2',
             correlationId: `corr-${now}-4`,
             createdAt: new Date(now - 3 * 86400000),
           },

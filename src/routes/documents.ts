@@ -58,7 +58,11 @@ const baseDocumentRoutes = new Elysia()
         return { success: false, error: workspaceAccess.error, code: 'FORBIDDEN' };
       }
 
-      const key = `${workspaceId}/${transactionId || 'unlinked'}/${Date.now()}-${filename}`;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const key = `NovaFinance/workspaces/${workspaceId}/documents/${year}/${month}/${transactionId ? `tx_${transactionId}` : 'unlinked'}/${Date.now()}_${safeFilename}`;
 
       // Convert File to ArrayBuffer then Buffer
       const arrayBuffer = await file.arrayBuffer();

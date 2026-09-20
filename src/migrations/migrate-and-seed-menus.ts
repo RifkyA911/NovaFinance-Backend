@@ -17,6 +17,11 @@ const SYSTEM_MENUS = [
   { name: 'portfolio', label: 'Portfolio', labelEn: 'Portfolio', labelId: 'Portofolio Investasi', icon: 'TrendingUp', path: '/portfolio', group: 'planning', order: 13 },
   { name: 'workspaces', label: 'Workspaces', labelEn: 'Workspaces', labelId: 'Manajemen Workspace', icon: 'Building2', path: '/workspaces', group: 'planning', order: 14 },
 
+  // Reporting & Finance Group
+  { name: 'financial-statement', label: 'Laporan Keuangan', labelEn: 'Financial Statement', labelId: 'Laporan Keuangan', icon: 'FileSpreadsheet', path: '/reports/financial-statement', group: 'reporting', order: 15 },
+  { name: 'tax-compliance', label: 'Kepatuhan Pajak (Tax)', labelEn: 'Tax Compliance', labelId: 'Kepatuhan Pajak (Tax)', icon: 'Calculator', path: '/reports/tax-compliance', group: 'reporting', order: 16 },
+  { name: 'budget-variance', label: 'Varian Realisasi Anggaran', labelEn: 'Budget vs Actual Variance', labelId: 'Varian Realisasi Anggaran', icon: 'FileCheck2', path: '/reports/budget-variance', group: 'reporting', order: 17 },
+
   // System & Governance
   { name: 'users', label: 'Users & RBAC', labelEn: 'Users & RBAC', labelId: 'Pengguna & Hak Akses', icon: 'Users', path: '/users', group: 'governance', order: 20 },
   { name: 'logs', label: 'Audit Logs', labelEn: 'Audit Logs', labelId: 'Log Audit & Forensik', icon: 'ScrollText', path: '/logs', group: 'governance', order: 21 },
@@ -27,8 +32,9 @@ const SYSTEM_MENUS = [
   { name: 'profile', label: 'User Profile', labelEn: 'User Profile', labelId: 'Profil Pengguna', icon: 'UserCheck', path: '/profile', group: 'configuration', order: 32 },
   { name: 'brand', label: 'Company Brand', labelEn: 'Company Brand', labelId: 'Identitas Brand', icon: 'Crown', path: '/brand', group: 'configuration', order: 33 },
   { name: 'appearance', label: 'Appearance', labelEn: 'Appearance', labelId: 'Tampilan & Tema', icon: 'Palette', path: '/appearance', group: 'configuration', order: 34 },
-  { name: 'ai-hub', label: 'AI Hub & Copilot', labelEn: 'AI Hub & Copilot', labelId: 'AI Hub & Copilot', icon: 'Cpu', path: '/ai-hub', group: 'configuration', order: 35 },
-  { name: 'security', label: 'Security & Vault', labelEn: 'Security & Vault', labelId: 'Keamanan & Vault', icon: 'ShieldCheck', path: '/security', group: 'configuration', order: 36 },
+  { name: 'content-management', label: 'Manajemen Menu', labelEn: 'Menu Management', labelId: 'Manajemen Menu', icon: 'LayoutList', path: '/content-management', group: 'configuration', order: 35 },
+  { name: 'ai-hub', label: 'AI Hub & Copilot', labelEn: 'AI Hub & Copilot', labelId: 'AI Hub & Copilot', icon: 'Cpu', path: '/ai-hub', group: 'configuration', order: 36 },
+  { name: 'security', label: 'Security & Vault', labelEn: 'Security & Vault', labelId: 'Keamanan & Vault', icon: 'ShieldCheck', path: '/security', group: 'configuration', order: 37 },
 ];
 
 async function migrateAndSeedMenus() {

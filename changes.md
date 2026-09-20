@@ -162,9 +162,11 @@
 ## 2026-09-20 (Release 2.5.0)
 
 ### Navigation Menu Provisioning & Seeding
-- Expanded database seeder (`src/seeds/seed.ts`) with modern reporting and content management routes:
+- Expanded database seeder (`src/seeds/seed.ts`) and migration script (`src/migrations/migrate-and-seed-menus.ts`) with modern reporting and content management routes:
   - Added `reporting` menu group containing Laporan Keuangan (`/reports/financial-statement`), Kepatuhan Pajak (`/reports/tax-compliance`), and Varian Realisasi Anggaran (`/reports/budget-variance`).
   - Added Content Management route (`/content-management`) under Settings group.
   - Automatically seeded role policies across all 5 production workspaces (`owner`, `admin`, `staff`, `viewer`).
+  - Executed migration across all 5 live workspaces, ensuring 110 total distinct menus with bilingual support.
+
 
 

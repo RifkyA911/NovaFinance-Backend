@@ -12,6 +12,16 @@ export const workspaces = pgTable('workspaces', {
   name: varchar('name', { length: 255 }).notNull(),
   type: varchar('type', { length: 20 }).notNull(), // 'personal', 'umkm', 'pt'
   currency: varchar('currency', { length: 3 }).default('IDR'),
+  customBrandLogo: text('custom_brand_logo'),
+  customBrandName: varchar('custom_brand_name', { length: 255 }),
+  customBrandDescription: text('custom_brand_description'),
+  customBrandJargon: varchar('custom_brand_jargon', { length: 255 }),
+  entityType: varchar('entity_type', { length: 50 }),
+  taxId: varchar('tax_id', { length: 100 }),
+  websiteUrl: varchar('website_url', { length: 255 }),
+  planTier: varchar('plan_tier', { length: 20 }).default('pro'), // 'basic', 'pro', 'enterprise'
+  customBrandMode: varchar('custom_brand_mode', { length: 30 }).default('square'), // 'square', 'wide'
+  customBrandDisplay: varchar('custom_brand_display', { length: 30 }).default('logo-and-text'), // 'logo-and-text', 'logo-only', 'full-banner'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
@@ -153,10 +163,13 @@ export const menus = pgTable('menus', {
   parentId: uuid('parent_id'),
   name: varchar('name', { length: 100 }).notNull(),
   label: varchar('label', { length: 100 }).notNull(),
+  labelEn: varchar('label_en', { length: 100 }),
+  labelId: varchar('label_id', { length: 100 }),
   icon: varchar('icon', { length: 50 }),
   path: varchar('path', { length: 255 }),
   order: integer('order').default(0),
   isActive: boolean('is_active').default(true),
+  group: varchar('group', { length: 50 }).default('overview'),
   permissions: jsonb('permissions'), // array of required permissions
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -165,6 +178,7 @@ export const menus = pgTable('menus', {
   workspaceIdIdx: index('menus_workspace_id_idx').on(table.workspaceId),
   parentIdIdx: index('menus_parent_id_idx').on(table.parentId),
   orderIdx: index('menus_order_idx').on(table.order),
+  groupIdx: index('menus_group_idx').on(table.group),
 }));
 
 // Documents table

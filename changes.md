@@ -130,3 +130,27 @@
 - Created `src/test-workspaces.ts` to test workspace API
 - All workspace API tests passed successfully
 - Database seeder executed successfully
+
+## 2026-09-20 (Release 2.4.0)
+
+### Multi-Workspace Realistic Seeding & Topology
+- Overhauled database seeder (`src/seeds/seed.ts`) with 5 production-ready, diverse workspaces:
+  1. **PT Nova Solusi Finansial** (PT · Enterprise · IDR): Enterprise SaaS cashflow, cloud infra, 28-person payroll, and emergency treasury reserves.
+  2. **CV Starlight Media Kreatif** (UMKM · Pro · IDR): Digital design studio, retainer branding, 3D video production, workstation hardware goals, and studio liabilities.
+  3. **Nexus Venture Partners LP** (PT · Enterprise · USD): Cross-border AI venture fund, LP capital calls, management fees, SAFE seed notes, and SVB credit line.
+  4. **Vance Family Private Wealth** (Personal · Pro · IDR): Family office, passive rental income, stock dividends (BBCA/BMRI), international school tuition, and home mortgage.
+  5. **Kopi Selaras Nusantara** (UMKM · Basic · IDR): Retail coffee chain, POS settlement revenue, raw beans restock, packaging, and outlet expansion targets.
+- All 5 workspaces are immediately accessible to `admin@example.com` (password: `admin123`).
+- Dynamic navigation menus automatically provisioned across all workspaces with full RBAC policies.
+
+### Enterprise White-Label & Storage Infrastructure
+- Enhanced `workspaces` table schema with white-label fields: `custom_brand_logo`, `custom_brand_name`, `custom_brand_description`, `custom_brand_jargon`, `custom_brand_mode`, `custom_brand_display`, `entity_type`, `tax_id`, and `website_url`.
+- Integrated MinIO S3 bucket asset storage with automatic WebP compression fallback for high-fidelity brand logos and user avatars.
+
+### Audit Logging & Security Event Service
+- Added comprehensive audit log service and endpoints in `src/routes/logs.ts` (`/api/logs/audit`) recording user actions, IP addresses, entity types, and state diffs.
+- Integrated automated audit log captures on workspace brand configuration updates and user permissions.
+
+### AI Gateway & Multi-Model Proxy
+- Integrated multi-model AI routing supporting Groq Cloud (`llama-3.3-70b-versatile`), Google Gemini, DeepSeek, and Anthropic Claude.
+- Added custom AI gateway endpoint support (OmniRoute, OpenRouter, and 9Router) for flexible enterprise deployments.

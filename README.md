@@ -1,4 +1,4 @@
-# NovaJournal Backend
+﻿# NovaFinance Backend
 
 Personal finance tracking API built with Elysia, Bun, Drizzle ORM, PostgreSQL, Redis, and MinIO.
 

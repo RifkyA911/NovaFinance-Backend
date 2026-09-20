@@ -154,3 +154,8 @@
 ### AI Gateway & Multi-Model Proxy
 - Integrated multi-model AI routing supporting Groq Cloud (`llama-3.3-70b-versatile`), Google Gemini, DeepSeek, and Anthropic Claude.
 - Added custom AI gateway endpoint support (OmniRoute, OpenRouter, and 9Router) for flexible enterprise deployments.
+
+### Multi-Workspace Brand Synchronization
+- Synchronized workspace brand identity, custom logo widths, and visual alignment between PostgreSQL workspace records and frontend clients.
+- Automated instant identity switching across distinct seeded enterprise workspaces.
+

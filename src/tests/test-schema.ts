@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { eq } from 'drizzle-orm';
-import * as schema from './db/schema';
+import * as schema from '../db/schema';
 
 const pool = new Pool({
   host: process.env.DB_HOST || '172.27.66.97',

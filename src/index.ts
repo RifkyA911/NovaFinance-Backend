@@ -12,17 +12,19 @@ import { aiRoutes } from "./routes/ai";
 import { documentRoutes, apiDocumentRoutes } from "./routes/documents";
 import { goalRoutes } from "./routes/goals";
 import { logRoutes } from "./routes/logs";
+import { menuRoutes } from "./routes/menus";
+import { userRoutes } from "./routes/user";
 
 const app = new Elysia()
   .use(swagger({
     exclude: ['/documents', /^\/documents(\/.*)?$/],
     documentation: {
       info: {
-        title: 'NovaJournal Financial Core Engine & Bookkeeping API',
+        title: 'NovaFinance Financial Core Engine & Bookkeeping API',
         version: '1.2.0',
         description: 'High-performance personal & enterprise financial accounting API with multi-workspace support, granular RBAC (Owner, Admin, Staff, Viewer), multi-provider AI document intelligence (Gemini OCR, Groq, DeepSeek, Claude), double-entry ledger reconciliation, and Model Context Protocol (MCP) tool interfaces.',
         contact: {
-          name: 'NovaJournal Engineering Team',
+          name: 'NovaFinance Engineering Team',
           url: 'http://localhost:3000',
         },
       },
@@ -70,8 +72,10 @@ const app = new Elysia()
   .use(documentRoutes)
   .use(apiDocumentRoutes)
   .use(logRoutes)
+  .use(menuRoutes)
+  .use(userRoutes)
   .get("/", () => ({
-    message: "NovaJournal API",
+    message: "NovaFinance API",
     version: "1.0.0",
     status: "operational",
   }), {
@@ -100,6 +104,6 @@ const app = new Elysia()
   .listen(8080);
 
 console.log(
-  `🚀 NovaJournal API running at http://${app.server?.hostname}:${app.server?.port}`
+  `🚀 NovaFinance API running at http://${app.server?.hostname}:${app.server?.port}`
 );
 console.log(`📚 API Documentation: http://localhost:8080/swagger`);

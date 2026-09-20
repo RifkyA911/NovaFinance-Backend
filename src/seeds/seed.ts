@@ -184,17 +184,23 @@ async function seed() {
       { name: 'portfolio', label: 'Portofolio & Saham', icon: 'TrendingUp', path: '/portfolio', group: 'planning', order: 8 },
       { name: 'workspaces', label: 'Workspaces', icon: 'Building2', path: '/workspaces', group: 'planning', order: 9 },
 
+      // Reporting & Finance Group
+      { name: 'financial-statement', label: 'Laporan Keuangan', icon: 'FileSpreadsheet', path: '/reports/financial-statement', group: 'reporting', order: 10 },
+      { name: 'tax-compliance', label: 'Kepatuhan Pajak (Tax)', icon: 'Calculator', path: '/reports/tax-compliance', group: 'reporting', order: 11 },
+      { name: 'budget-variance', label: 'Varian Realisasi Anggaran', icon: 'FileCheck2', path: '/reports/budget-variance', group: 'reporting', order: 12 },
+
       // Settings & Configuration Group
-      { name: 'settings', label: 'Settings Hub', icon: 'Settings', path: '/settings', group: 'configuration', order: 10 },
-      { name: 'profile', label: 'Profil Pengguna', icon: 'UserCheck', path: '/profile', group: 'configuration', order: 11 },
-      { name: 'brand', label: 'Identitas Brand', icon: 'Crown', path: '/brand', group: 'configuration', order: 12 },
-      { name: 'appearance', label: 'Tampilan & Tema', icon: 'Palette', path: '/appearance', group: 'configuration', order: 13 },
-      { name: 'aihub', label: 'AI Hub & Copilot', icon: 'Cpu', path: '/ai-hub', group: 'configuration', order: 14 },
-      { name: 'security', label: 'Keamanan & Vault', icon: 'ShieldCheck', path: '/security', group: 'configuration', order: 15 },
+      { name: 'settings', label: 'Settings Hub', icon: 'Settings', path: '/settings', group: 'configuration', order: 13 },
+      { name: 'profile', label: 'Profil Pengguna', icon: 'UserCheck', path: '/profile', group: 'configuration', order: 14 },
+      { name: 'brand', label: 'Identitas Brand', icon: 'Crown', path: '/brand', group: 'configuration', order: 15 },
+      { name: 'appearance', label: 'Tampilan & Tema', icon: 'Palette', path: '/appearance', group: 'configuration', order: 16 },
+      { name: 'content-management', label: 'Manajemen Menu', icon: 'LayoutList', path: '/content-management', group: 'configuration', order: 17 },
+      { name: 'aihub', label: 'AI Hub & Copilot', icon: 'Cpu', path: '/ai-hub', group: 'configuration', order: 18 },
+      { name: 'security', label: 'Keamanan & Vault', icon: 'ShieldCheck', path: '/security', group: 'configuration', order: 19 },
 
       // Governance & Access Group
-      { name: 'users', label: 'Users & RBAC', icon: 'Users', path: '/users', group: 'governance', order: 16 },
-      { name: 'logs', label: 'Audit Logs', icon: 'ScrollText', path: '/logs', group: 'governance', order: 17 },
+      { name: 'users', label: 'Users & RBAC', icon: 'Users', path: '/users', group: 'governance', order: 20 },
+      { name: 'logs', label: 'Audit Logs', icon: 'ScrollText', path: '/logs', group: 'governance', order: 21 },
     ];
 
     for (const ws of createdWorkspaces) {

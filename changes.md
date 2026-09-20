@@ -159,3 +159,12 @@
 - Synchronized workspace brand identity, custom logo widths, and visual alignment between PostgreSQL workspace records and frontend clients.
 - Automated instant identity switching across distinct seeded enterprise workspaces.
 
+## 2026-09-20 (Release 2.5.0)
+
+### Navigation Menu Provisioning & Seeding
+- Expanded database seeder (`src/seeds/seed.ts`) with modern reporting and content management routes:
+  - Added `reporting` menu group containing Laporan Keuangan (`/reports/financial-statement`), Kepatuhan Pajak (`/reports/tax-compliance`), and Varian Realisasi Anggaran (`/reports/budget-variance`).
+  - Added Content Management route (`/content-management`) under Settings group.
+  - Automatically seeded role policies across all 5 production workspaces (`owner`, `admin`, `staff`, `viewer`).
+
+

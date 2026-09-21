@@ -5,6 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "bun run --watch src/index.ts",
+    "pgadmin": "start \"\" \"C:\\Program Files\\PostgreSQL\\16\\pgAdmin 4\\runtime\\pgAdmin4.exe\"",
     "test:db": "bun run src/tests/test-db.ts",
     "test:redis": "bun run src/tests/test-redis.ts",
     "test:minio": "bun run src/tests/test-minio.ts",
@@ -26,6 +27,7 @@
     "@elysiajs/cors": "^1.4.2",
     "@elysiajs/swagger": "^1",
     "@google/generative-ai": "^0.24.1",
+    "amqplib": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.7.4",
     "drizzle-orm": "^0.33.0",
@@ -35,6 +37,7 @@
     "redis": "^4.7.0"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.8",
     "@types/pg": "^8.23.1",
     "@typescript-eslint/eslint-plugin": "^8",
     "@typescript-eslint/parser": "^8",

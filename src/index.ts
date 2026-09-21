@@ -14,6 +14,12 @@ import { goalRoutes } from "./routes/goals";
 import { logRoutes } from "./routes/logs";
 import { menuRoutes } from "./routes/menus";
 import { userRoutes } from "./routes/user";
+import { initVectorTables } from "./db/init-vector";
+import { initRabbitMQ } from "./services/broker";
+
+// Boot infrastructure services
+initVectorTables().catch((err) => console.error("❌ [pgvector] Init failed:", err.message));
+initRabbitMQ().catch((err) => console.error("❌ [RabbitMQ] Init failed:", err.message));
 
 const app = new Elysia()
   .use(swagger({

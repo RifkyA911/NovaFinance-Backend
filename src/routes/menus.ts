@@ -48,8 +48,10 @@ export const menuRoutes = new Elysia({ prefix: '/api/workspaces' })
     },
     {
       detail: {
-        tags: ['Workspaces'],
+        tags: ['Menus'],
         summary: 'Get dynamic navigation menus for workspace',
+        description: 'Fetch ordered list of active sidebar navigation menu items configured for the specified workspace.',
+        security: [{ BearerAuth: [] }],
       },
     }
   )
@@ -110,8 +112,10 @@ export const menuRoutes = new Elysia({ prefix: '/api/workspaces' })
         isActive: t.Optional(t.Boolean()),
       }),
       detail: {
-        tags: ['Workspaces'],
-        summary: 'Create navigation menu item for workspace',
+        tags: ['Menus'],
+        summary: 'Create or configure navigation menu item for workspace',
+        description: 'Add a new navigation menu item with custom label, icon, group, and route path to a workspace.',
+        security: [{ BearerAuth: [] }],
       },
     }
   );

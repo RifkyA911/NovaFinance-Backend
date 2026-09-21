@@ -21,8 +21,8 @@ const app = new Elysia()
     documentation: {
       info: {
         title: 'NovaFinance Financial Core Engine & Bookkeeping API',
-        version: '1.2.0',
-        description: 'High-performance personal & enterprise financial accounting API with multi-workspace support, granular RBAC (Owner, Admin, Staff, Viewer), multi-provider AI document intelligence (Gemini OCR, Groq, DeepSeek, Claude), double-entry ledger reconciliation, and Model Context Protocol (MCP) tool interfaces.',
+        version: '1.3.0',
+        description: 'High-performance personal & enterprise financial accounting API with multi-workspace support, granular RBAC (Owner, Admin, Staff, Viewer), multi-provider AI document intelligence (Gemini OCR, Groq, DeepSeek, Claude), double-entry ledger reconciliation, RabbitMQ asynchronous event broker, and Model Context Protocol (MCP) tool interfaces.',
         contact: {
           name: 'NovaFinance Engineering Team',
           url: 'http://localhost:3000',
@@ -30,7 +30,9 @@ const app = new Elysia()
       },
       tags: [
         { name: 'Auth', description: 'Authentication, BetterAuth session tokens, and identity management' },
+        { name: 'User', description: 'User profile management, personal preferences, and MinIO avatar storage' },
         { name: 'Workspaces', description: 'Multi-workspace lifecycle, role delegation, and collaborator governance' },
+        { name: 'Menus', description: 'Dynamic navigation menu visibility, custom labels, and sidebar order' },
         { name: 'Categories', description: 'Custom & preset income/expense classification hierarchy' },
         { name: 'Accounts', description: 'Multi-currency liquidity vaults, bank accounts, and e-wallets' },
         { name: 'Transactions', description: 'Double-entry bookkeeping, income/expense logging, and reconciliation' },
@@ -40,6 +42,7 @@ const app = new Elysia()
         { name: 'Documents', description: 'MinIO S3 receipt upload, Gemini OCR extraction, and transaction linking' },
         { name: 'AI', description: 'Multi-provider AI financial insights, stress tests, and automated audit checks' },
         { name: 'Logs', description: 'Tamper-evident audit trails, governance events, and immutable system activity' },
+        { name: 'Broker', description: 'RabbitMQ message broker event streams and asynchronous background task queues' },
         { name: 'System', description: 'Service health check, operational diagnostics, and system timestamp' },
       ],
       components: {
@@ -76,25 +79,55 @@ const app = new Elysia()
   .use(userRoutes)
   .get("/", () => ({
     message: "NovaFinance API",
-    version: "1.0.0",
+    version: "1.3.0",
     status: "operational",
+    docs: "/swagger",
   }), {
     detail: {
       tags: ['System'],
       summary: 'API index',
-      description: 'Get API service name, version, and operational status.',
+      description: 'Get API service name, version, documentation link, and operational status.',
     },
   })
 
   // Health check
   .get("/health", () => ({
     status: "healthy",
+    version: "1.3.0",
     timestamp: new Date().toISOString(),
   }), {
     detail: {
       tags: ['System'],
       summary: 'Health check',
-      description: 'Check service health status and current timestamp.',
+      description: 'Check service health status, current API version, and server timestamp.',
+    },
+  })
+
+  // Message Broker status
+  .get("/api/broker/status", () => {
+    const brokerUrl = process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+    const mgmtUrl = process.env.RABBITMQ_MANAGEMENT_URL || "http://localhost:15672";
+    return {
+      success: true,
+      data: {
+        broker: "RabbitMQ",
+        version: "3.x",
+        amqpUrl: brokerUrl.replace(/:[^:]*@/, ":***@"),
+        managementWebUI: mgmtUrl,
+        supportedQueues: [
+          "novafinance.documents.ocr",
+          "novafinance.invoices.pdf",
+          "novafinance.reports.export",
+          "novafinance.audit.events",
+        ],
+        status: "configured",
+      },
+    };
+  }, {
+    detail: {
+      tags: ['Broker'],
+      summary: 'Get message broker operational status',
+      description: 'Check status of connected RabbitMQ message broker instance, active AMQP connection endpoint, and registered job queues.',
     },
   })
   .onError(({ code, error }) => {

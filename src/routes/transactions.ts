@@ -4,6 +4,8 @@ import * as schema from '../db/schema';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
+import { publishToQueue, QUEUES } from '../services/broker';
+import { formatTransactionText } from '../services/embedding';
 
 export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
   .post('', async ({ body, headers, set }) => {
@@ -66,6 +68,30 @@ export const transactionRoutes = new Elysia({ prefix: '/api/transactions' })
           .where(and(eq(schema.accounts.id, body.accountId), eq(schema.accounts.workspaceId, body.workspaceId)));
         
         return newTx;
+      });
+
+      // Asynchronous event publication via RabbitMQ broker (non-blocking)
+      const semanticContent = formatTransactionText({
+        type: body.type,
+        amount: body.amount,
+        description: body.description,
+        notes: body.notes,
+        date: body.date,
+      });
+
+      publishToQueue(QUEUES.EMBEDDINGS, {
+        transactionId: transaction.id,
+        workspaceId: body.workspaceId,
+        content: semanticContent,
+      });
+
+      publishToQueue(QUEUES.AUDIT_EVENTS, {
+        workspaceId: body.workspaceId,
+        userId: authResult.user.id,
+        action: 'create',
+        entityType: 'transaction',
+        entityId: transaction.id,
+        data: { amount: body.amount, type: body.type, description: body.description },
       });
       
       return { success: true, data: { transaction } };

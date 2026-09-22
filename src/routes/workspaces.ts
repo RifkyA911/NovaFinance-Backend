@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { db } from '../auth/config';
 import * as schema from '../db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
 import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
@@ -161,7 +161,38 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
       };
       if (body.name !== undefined) updateData.name = body.name;
       if (body.type !== undefined) updateData.type = body.type;
-      if (body.currency !== undefined) updateData.currency = body.currency;
+      if (body.currency !== undefined) {
+        // Security & Ledger Integrity Audit: Check if workspace currently has recorded transactions
+        const [currentWs] = await db
+          .select({ currency: schema.workspaces.currency })
+          .from(schema.workspaces)
+          .where(eq(schema.workspaces.id, params.id))
+          .limit(1);
+
+        if (currentWs && currentWs.currency !== body.currency) {
+          const [txStat] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(schema.transactions)
+            .where(
+              and(
+                eq(schema.transactions.workspaceId, params.id),
+                isNull(schema.transactions.deletedAt)
+              )
+            );
+
+          const txCount = Number(txStat?.count || 0);
+          if (txCount > 0) {
+            set.status = 400;
+            return {
+              success: false,
+              error: `Mata uang tidak dapat diubah dari ${currentWs.currency} ke ${body.currency} karena entitas telah memiliki ${txCount} transaksi tercatat. Mengubah mata uang secara langsung akan mendistorsi nilai nominal historis. Buat workspace baru untuk entitas dengan mata uang berbeda.`,
+              code: 'CURRENCY_MUTATION_FORBIDDEN_WITH_LEDGER',
+              data: { transactionCount: txCount, currentCurrency: currentWs.currency },
+            };
+          }
+        }
+        updateData.currency = body.currency;
+      }
       if (body.customBrandLogo !== undefined) updateData.customBrandLogo = body.customBrandLogo;
       if (body.customBrandName !== undefined) updateData.customBrandName = body.customBrandName;
       if (body.customBrandDescription !== undefined) updateData.customBrandDescription = body.customBrandDescription;

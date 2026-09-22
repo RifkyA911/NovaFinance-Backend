@@ -1,4 +1,4 @@
-﻿# NovaFinance Backend
+# NovaFinance Backend
 
 Personal finance tracking API built with Elysia, Bun, Drizzle ORM, PostgreSQL, Redis, and MinIO.
 
@@ -8,10 +8,12 @@ Personal finance tracking API built with Elysia, Bun, Drizzle ORM, PostgreSQL, R
 - **Framework**: Elysia
 - **Database**: PostgreSQL 14 with Drizzle ORM
 - **Cache**: Redis 7
-- **Storage**: MinIO (S3-compatible)
+- **Storage**: MinIO / Cloudflare R2 (S3-compatible) with **8GB Hard Quota Guard** (`checkStorageQuotaGuard`)
+- **Message Broker**: RabbitMQ 3.x with automatic background worker consumers
+- **Vector Search**: PostgreSQL `pgvector` with 768-dim embeddings & HNSW indexing
 - **Authentication**: BetterAuth
-- **AI**: Google Gemini API
-- **API Documentation**: Swagger/OpenAPI
+- **AI**: Google Gemini API, OpenAI, Groq, DeepSeek, Anthropic Claude
+- **API Documentation**: Swagger/OpenAPI (`/swagger`)
 
 ## Project Structure
 

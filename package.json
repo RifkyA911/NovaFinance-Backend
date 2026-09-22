@@ -9,6 +9,7 @@
     "test:db": "bun run src/tests/test-db.ts",
     "test:redis": "bun run src/tests/test-redis.ts",
     "test:minio": "bun run src/tests/test-minio.ts",
+    "test:storage": "bun run src/tests/test-storage-guard.ts",
     "test:api": "bun run src/tests/test-api.ts",
     "test:all": "bun run src/tests/test-db.ts && bun run src/tests/test-redis.ts && bun run src/tests/test-minio.ts && bun run src/tests/test-api.ts",
     "db:generate": "drizzle-kit generate",

@@ -1,24 +1,19 @@
 import { Elysia, t } from "elysia";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { db } from '../auth/config';
 import { documents } from '../db/schema';
 import { analyzeDocument } from '../services/gemini';
 import { eq } from 'drizzle-orm';
-
-// MinIO S3 Client
-const s3Client = new S3Client({
-  endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
-  region: 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.MINIO_ACCESS_KEY || 'minio',
-    secretAccessKey: process.env.MINIO_SECRET_KEY || 'minio123',
-  },
-  forcePathStyle: true,
-});
-
-const BUCKET_NAME = 'novajournal-documents';
+import {
+  s3Client,
+  BUCKET_NAME,
+  checkStorageQuotaGuard,
+  recordUpload,
+  recordDelete,
+  getStorageUsage,
+} from '../services/storage';
 
 // Ensure bucket exists
 async function ensureBucket() {
@@ -68,7 +63,21 @@ const baseDocumentRoutes = new Elysia()
       const arrayBuffer = await file.arrayBuffer();
       const bodyBuffer = Buffer.from(arrayBuffer);
 
-      // Upload to MinIO
+      // ── Storage Quota Guard (8GB Limit for R2 / MinIO) ──
+      const quotaCheck = await checkStorageQuotaGuard(bodyBuffer.length);
+      if (!quotaCheck.allowed) {
+        set.status = 413; // Payload Too Large
+        return {
+          success: false,
+          error: quotaCheck.error,
+          code: quotaCheck.code,
+          data: {
+            storageUsage: quotaCheck.usage,
+          },
+        };
+      }
+
+      // Upload to MinIO / Cloudflare R2
       const command = new PutObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
@@ -78,6 +87,7 @@ const baseDocumentRoutes = new Elysia()
       });
 
       await s3Client.send(command);
+      recordUpload(bodyBuffer.length);
 
       // Generate presigned URL for immediate access
       const getUrlCommand = new GetObjectCommand({
@@ -243,7 +253,7 @@ const baseDocumentRoutes = new Elysia()
         return { success: false, error: 'Access denied', code: 'FORBIDDEN' };
       }
 
-      // Delete from MinIO
+      // Delete from MinIO / Cloudflare R2
       const command = new DeleteObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
@@ -253,6 +263,7 @@ const baseDocumentRoutes = new Elysia()
 
       // Delete from database
       await db.delete(documents).where(eq(documents.minioKey, key));
+      recordDelete(doc.fileSize || 0);
 
       return { success: true };
     } catch (error) {
@@ -265,6 +276,30 @@ const baseDocumentRoutes = new Elysia()
       tags: ['Documents'],
       summary: 'Delete document',
       description: 'Delete document from workspace and MinIO storage. Requires owner, admin, or staff role.',
+      security: [{ BearerAuth: [] }],
+    },
+  })
+
+  // ── Storage Status (R2 / MinIO 8GB Quota Monitor) ──
+  .get('/storage-status', async ({ headers, set }) => {
+    const authResult = await requireAuth(headers);
+    if (authResult.error || !authResult.user) {
+      set.status = authResult.status || 401;
+      return { success: false, error: authResult.error || 'Authentication failed', code: 'UNAUTHORIZED' };
+    }
+
+    try {
+      const usage = await getStorageUsage(true);
+      return { success: true, data: usage };
+    } catch (error: any) {
+      set.status = 500;
+      return { success: false, error: 'Failed to retrieve storage status', code: 'STORAGE_ERROR', details: error?.message };
+    }
+  }, {
+    detail: {
+      tags: ['Documents'],
+      summary: 'Get storage usage and 8GB quota status (Cloudflare R2 / MinIO)',
+      description: 'Returns total used bytes, remaining capacity towards 8GB limit, object count, and usage percentage.',
       security: [{ BearerAuth: [] }],
     },
   })

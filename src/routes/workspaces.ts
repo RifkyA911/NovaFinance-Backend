@@ -4,18 +4,13 @@ import * as schema from '../db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { requireAuth, requireWorkspaceAccess } from '../middleware/auth';
 import { auth } from '../auth';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-
-const s3Client = new S3Client({
-  endpoint: process.env.MINIO_ENDPOINT || 'http://localhost:9000',
-  region: 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER || 'minio',
-    secretAccessKey: process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || 'minio123',
-  },
-  forcePathStyle: true,
-});
-const BUCKET_NAME = process.env.MINIO_BUCKET || 'novajournal-documents';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  s3Client,
+  BUCKET_NAME,
+  checkStorageQuotaGuard,
+  recordUpload,
+} from '../services/storage';
 
 export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
   .post('', async ({ body, headers, set }) => {
@@ -608,6 +603,18 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
       // Structured MinIO Key: NovaFinance/workspaces/{workspaceId}/brand/{mode}_{timestamp}.{ext}
       const s3Key = `NovaFinance/workspaces/${params.id}/brand/${filename}`;
 
+      // Storage Quota Guard (8GB limit for R2/MinIO)
+      const quotaCheck = await checkStorageQuotaGuard(fileBuffer.length);
+      if (!quotaCheck.allowed) {
+        set.status = 413;
+        return {
+          success: false,
+          error: quotaCheck.error,
+          code: quotaCheck.code,
+          data: { storageUsage: quotaCheck.usage },
+        };
+      }
+
       await s3Client.send(
         new PutObjectCommand({
           Bucket: BUCKET_NAME,
@@ -617,6 +624,7 @@ export const workspaceRoutes = new Elysia({ prefix: '/api/workspaces' })
           ContentLength: fileBuffer.length,
         })
       );
+      recordUpload(fileBuffer.length);
 
       const brandLogoUrl = `http://localhost:8080/api/workspaces/brand-logo/${params.id}/${filename}`;
 

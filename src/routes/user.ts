@@ -1,22 +1,15 @@
 import { Elysia, t } from "elysia";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { requireAuth } from "../middleware/auth";
 import { db } from "../auth/config";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
-
-// MinIO S3 Client
-const s3Client = new S3Client({
-  endpoint: process.env.MINIO_ENDPOINT || "http://localhost:9000",
-  region: "us-east-1",
-  credentials: {
-    accessKeyId: process.env.MINIO_ACCESS_KEY || "minio",
-    secretAccessKey: process.env.MINIO_SECRET_KEY || "minio123",
-  },
-  forcePathStyle: true,
-});
-
-const BUCKET_NAME = "novajournal-documents";
+import {
+  s3Client,
+  BUCKET_NAME,
+  checkStorageQuotaGuard,
+  recordUpload,
+} from "../services/storage";
 
 export const userRoutes = new Elysia({ prefix: "/api/user" })
   // ── 1. GET User Profile ────────────────────────────────────────────────
@@ -182,7 +175,19 @@ export const userRoutes = new Elysia({ prefix: "/api/user" })
       // Structured MinIO Key: NovaFinance/users/{userId}/avatars/{filename}
       const s3Key = `NovaFinance/users/${authResult.user.id}/avatars/${filename}`;
 
-      // Upload to MinIO S3
+      // Storage Quota Guard (8GB limit for R2/MinIO)
+      const quotaCheck = await checkStorageQuotaGuard(fileBuffer.length);
+      if (!quotaCheck.allowed) {
+        set.status = 413;
+        return {
+          success: false,
+          error: quotaCheck.error,
+          code: quotaCheck.code,
+          data: { storageUsage: quotaCheck.usage },
+        };
+      }
+
+      // Upload to MinIO / Cloudflare R2
       await s3Client.send(
         new PutObjectCommand({
           Bucket: BUCKET_NAME,
@@ -192,6 +197,7 @@ export const userRoutes = new Elysia({ prefix: "/api/user" })
           ContentLength: fileBuffer.length,
         })
       );
+      recordUpload(fileBuffer.length);
 
       // Construct publicly accessible URL via backend proxy or MinIO
       const avatarUrl = `http://localhost:8080/api/user/avatar/${filename}`;
